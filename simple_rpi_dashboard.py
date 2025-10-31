@@ -256,19 +256,42 @@ class SimpleDashboard:
 
     def setup_logging(self):
         """Setup logging."""
-        self.log_dir.mkdir(exist_ok=True)
-        log_file = self.log_dir / \
-            f"dashboard_{datetime.now().strftime('%Y%m%d')}.log"
+        from logging import FileHandler, StreamHandler
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = self.log_dir / f"dashboard_{datetime.now().strftime('%Y%m%d')}.log"
+
+        handlers = []
+        # Always at least log to console/journal
+        handlers.append(StreamHandler())
+
+        # Try to add a file handler; fall back gracefully on permission errors
+        file_handler_added = False
+        try:
+            fh = FileHandler(log_file)
+            handlers.insert(0, fh)  # file first, then stream
+            file_handler_added = True
+        except Exception as e:
+            # Attempt to fall back to /tmp if primary log directory is not writable
+            try:
+                tmp_fallback = Path("/tmp") / log_file.name
+                fh = FileHandler(tmp_fallback)
+                handlers.insert(0, fh)
+                print(f"⚠️ Cannot write to {log_file}: {e}. Using fallback log: {tmp_fallback}")
+                file_handler_added = True
+            except Exception as e2:
+                print(f"⚠️ File logging disabled (permission error). Streaming logs only. Error: {e2}")
 
         logging.basicConfig(
             level=getattr(logging, CONFIG["LOG_LEVEL"]),
             format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler()
-            ]
+            handlers=handlers,
         )
         self.logger = logging.getLogger(__name__)
+        if not file_handler_added:
+            try:
+                self.logger.warning("File logging is disabled due to permission issues; logs available in journal only.")
+            except Exception:
+                pass
 
     def run_command(self, cmd, check=True, shell=False):
         """Run a system command."""
@@ -572,25 +595,37 @@ WantedBy=multi-user.target
 
             # Import helpers from legacy_core if available, otherwise use flat-root modules
             def setup_modbus_client(config, logger=None):
+                """
+                Build a Modbus client and determine simulation mode.
+                IMPORTANT: Do NOT force simulation mode on failures when the config explicitly disables it.
+                If SIMULATION_MODE is False and hardware is unavailable, return (client=None, sim_mode=False) and let reads fail gracefully (no random data).
+                """
+                desired_sim = bool(config.get("SIMULATION_MODE", False))
                 try:
                     from pymodbus.client.sync import ModbusSerialClient as ModbusClient
                 except Exception as e:
                     if logger:
                         logger.error(f"Failed to import pymodbus: {e}")
-                    return None, True, False
+                    # Honor user preference: only simulate if explicitly requested
+                    return None, desired_sim, False
                 port = config.get("PORT", "")
                 import os
                 if not port or not os.path.exists(port):
                     if logger:
-                        logger.warning(f"Port {port} not found, enabling simulation mode")
-                    return None, True, False
+                        logger.warning(f"Port {port} not found; simulation_mode={'ON' if desired_sim else 'OFF'} (honoring config)")
+                    return None, desired_sim, False
                 try:
                     client = ModbusClient(method="rtu", port=port, stopbits=1, bytesize=8, parity='E', baudrate=9600, timeout=0.5)
                     if client.connect():
-                        return client, bool(config.get("SIMULATION_MODE", False)), False
-                    return None, True, False
-                except Exception:
-                    return None, True, False
+                        # Connected: use configured simulation flag (usually False)
+                        return client, desired_sim, False
+                    if logger:
+                        logger.warning("Modbus client connect() failed; not simulating unless configured")
+                    return None, desired_sim, False
+                except Exception as e:
+                    if logger:
+                        logger.warning(f"Error creating Modbus client: {e}; not simulating unless configured")
+                    return None, desired_sim, False
 
             try:
                 # Prefer grouped legacy modules
@@ -667,32 +702,39 @@ WantedBy=multi-user.target
 
             # Initialize hardware via shared helper
             client, sim_mode, _use_default = setup_modbus_client(CONFIG, logger=self.logger)
+            # Preserve user's simulation preference; setup_modbus_client already honored it
             CONFIG["SIMULATION_MODE"] = sim_mode
 
             # Initialize MQTT
             mqtt = init_mqtt_if_enabled(CONFIG)
 
             # Create devices and manager
-            timestamp = datetime.now().strftime("%Y%m%d")
-            # Use a single consolidated CSV file for all devices at this site
+            # Use a single consolidated CSV file for the entire deployment (no daily rotation)
             self.csv_dir.mkdir(parents=True, exist_ok=True)
-            csv_file = self.csv_dir / f"readings_{timestamp}.csv"
+            csv_file = self.csv_dir / "readings_all.csv"
             csv_files = [str(csv_file)]
             meters = build_meters(PARAMETERS, DEVICE_CONFIG, client, CONFIG.get("SIMULATION_MODE", False))
             manager = create_manager(meters, PARAMETERS, csv_file, mqtt, CONFIG.get("ENABLE_MQTT", False))
 
             self.logger.info(f"Dashboard started with {len(meters)} devices")
 
-            # Main loop
+            # Main loop: never exit on read errors; log and retry
             while True:
-                manager.read_all(
-                    inter_device_delay=CONFIG["INTER_DEVICE_DELAY"])
+                try:
+                    manager.read_all(
+                        inter_device_delay=CONFIG["INTER_DEVICE_DELAY"])
 
-                if manager.TotalReadings % 10 == 0:
-                    self.logger.info(
-                        f"Completed {manager.TotalReadings} reading cycles")
-
-                time.sleep(CONFIG["READING_INTERVAL"])
+                    if manager.TotalReadings % 10 == 0:
+                        self.logger.info(
+                            f"Completed {manager.TotalReadings} reading cycles")
+                except Exception as e:
+                    import traceback as _tb
+                    self.logger.error(f"Read cycle error: {e}")
+                    self.logger.debug(_tb.format_exc())
+                    # Backoff briefly before retrying to avoid busy-loop
+                    time.sleep(5)
+                else:
+                    time.sleep(CONFIG["READING_INTERVAL"])
 
         except Exception as e:
             import traceback

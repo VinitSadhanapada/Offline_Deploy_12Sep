@@ -357,44 +357,67 @@ class SimpleMeterUI(tk.Tk):
         self.after(2000, self.periodic_check_logging)
 
     def check_logging_process(self):
-        # Check for running Manual Run or Live Readings
+        # Prefer authoritative service state to avoid mislabeling service restarts as Manual Run
         import subprocess
-        result = subprocess.run(["ps", "aux"], stdout=subprocess.PIPE, text=True)
+        service_active = False
+        try:
+            svc = subprocess.run(["systemctl", "is-active", "meter-dashboard.service"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            service_active = (svc.returncode == 0 and svc.stdout.strip() == "active")
+        except Exception:
+            service_active = False
+
         manual_running = False
         live_running = False
         msg = ""
-        for line in result.stdout.splitlines():
-            if "simple_rpi_dashboard.py" in line:
-                line_norm = line.strip().lower()
-                if "--run" in line_norm:
-                    manual_running = True
-                    msg = "Manual Run is already running!"
-                elif "--print-readings" in line_norm:
-                    live_running = True
-                    msg = "Live Readings is already running!"
-        # Only disable Manual Run if running, keep Live Readings enabled
-        self.manual_btn.config(state=tk.DISABLED if manual_running else tk.NORMAL)
+
+        if service_active:
+            msg = "Auto logging service is running."
+        else:
+            # Fallback: check processes for manual runs or live readings
+            result = subprocess.run(["ps", "aux"], stdout=subprocess.PIPE, text=True)
+            for line in result.stdout.splitlines():
+                if "simple_rpi_dashboard.py" in line:
+                    line_norm = line.strip().lower()
+                    if "--run" in line_norm:
+                        manual_running = True
+                        msg = "Manual Run is already running!"
+                    elif "--print-readings" in line_norm:
+                        live_running = True
+                        msg = "Live Readings is already running!"
+
+        # Disable Manual Run when service is active or manual already running
+        if service_active or manual_running:
+            self.manual_btn.config(state=tk.DISABLED)
+        else:
+            self.manual_btn.config(state=tk.NORMAL)
+
+        # Live readings can always be opened
         self.live_btn.config(state=tk.NORMAL)
-        self.force_stop_btn.config(state=tk.NORMAL if manual_running or live_running else tk.DISABLED)
-        # Show process status always at the top of output area
+        # Force stop available when either service or manual/live is running
+        any_running = service_active or manual_running or live_running
+        self.force_stop_btn.config(state=tk.NORMAL if any_running else tk.DISABLED)
+
+        # Show process/service status always at the top of output area
         current_text = self.output.get('1.0', 'end-1c')
         lines = current_text.split('\n')
-        # Remove any previous process status from the top
-        if lines and (lines[0].startswith('Manual Run is already running!') or lines[0].startswith('Live Readings is already running!')):
+        if lines and (lines[0].startswith('Manual Run is already running!') or lines[0].startswith('Live Readings is already running!') or lines[0].startswith('Auto logging service is running.')):
             lines = lines[1:]
         new_text = '\n'.join(lines)
         self.output.delete('1.0', tk.END)
-        if manual_running:
-            self.output.insert('1.0', f"{msg}\n" + new_text)
-        elif live_running:
+        if msg:
             self.output.insert('1.0', f"{msg}\n" + new_text)
         else:
             self.output.insert('1.0', new_text)
         
     def force_stop_logging(self):
         import subprocess
-        subprocess.run(["pkill", "-f", "simple_rpi_dashboard.py"], stdout=subprocess.PIPE, text=True)
-        self.status_label.config(text="Stopped all logging processes.", fg="green")
+        # Stop systemd service first (if active), then kill any manual runs as fallback
+        try:
+            subprocess.run(["sudo", "systemctl", "stop", "meter-dashboard.service"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        except Exception:
+            pass
+        subprocess.run(["pkill", "-f", "simple_rpi_dashboard.py --run"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.status_label.config(text="Stopped logging (service and any manual runs).", fg="green")
         self.check_logging_process()
 
     def run_command(self, cmd, on_complete=None):
@@ -575,26 +598,24 @@ class LiveReadingsWindow(tk.Toplevel):
         self._running = True
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        # Use consolidated CSV directory
+        # Use single consolidated CSV file
         csv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "csv")
-        self.csv_files = glob.glob(os.path.join(csv_dir, "*.csv"))
+        single_csv = os.path.join(csv_dir, "readings_all.csv")
         self.tabs = {}
-        for csv_path in self.csv_files:
-            location = os.path.splitext(os.path.basename(csv_path))[0]
-            tab = tk.Frame(self.notebook)
-            # Add a canvas and scrollbar to each tab for scrolling
-            canvas = tk.Canvas(tab)
-            scrollbar = tk.Scrollbar(tab, orient="vertical", command=canvas.yview)
-            scroll_frame = tk.Frame(canvas)
-            scroll_frame.bind(
-                "<Configure>", lambda e, c=canvas: c.configure(scrollregion=c.bbox("all"))
-            )
-            canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
-            canvas.configure(yscrollcommand=scrollbar.set)
-            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-            self.notebook.add(tab, text=location)
-            self.tabs[csv_path] = scroll_frame
+        tab = tk.Frame(self.notebook)
+        # Add a canvas and scrollbar to the tab for scrolling
+        canvas = tk.Canvas(tab)
+        scrollbar = tk.Scrollbar(tab, orient="vertical", command=canvas.yview)
+        scroll_frame = tk.Frame(canvas)
+        scroll_frame.bind(
+            "<Configure>", lambda e, c=canvas: c.configure(scrollregion=c.bbox("all"))
+        )
+        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.notebook.add(tab, text="readings_all")
+        self.tabs[single_csv] = scroll_frame
         self.after(100, self.refresh)
 
     def _close(self):

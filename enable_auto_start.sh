@@ -9,12 +9,29 @@ pushd "$SCRIPT_DIR" >/dev/null
 
 mkdir -p "$SCRIPT_DIR/logs"
 
-echo "[INFO] Installing meter-dashboard service via simple_rpi_dashboard.py --install"
-sudo python3 simple_rpi_dashboard.py --install || {
-	echo "[ERROR] Failed to install service. You can run manually:"
-	echo "        sudo python3 $SCRIPT_DIR/simple_rpi_dashboard.py --install"
+TARGET_USER="${SUDO_USER:-$USER}"
+echo "[INFO] Preparing meter-dashboard environment for user: ${TARGET_USER}"
+
+# 1) Create/repair the venv and app directories as the target (non-root) user so
+#    runtime directories (logs, data) are owned by the service user.
+sudo -u "$TARGET_USER" -H python3 simple_rpi_dashboard.py --setup || {
+	echo "[ERROR] Env setup failed. Try manually as ${TARGET_USER}:"
+	echo "        python3 $SCRIPT_DIR/simple_rpi_dashboard.py --setup"
 	exit 1
 }
+
+# 2) Create and enable the systemd service (requires root)
+echo "[INFO] Creating/enabling meter-dashboard systemd service"
+python3 simple_rpi_dashboard.py --create-service || {
+	echo "[ERROR] Failed to create service. You can run manually:"
+	echo "        sudo python3 $SCRIPT_DIR/simple_rpi_dashboard.py --create-service"
+	exit 1
+}
+
+# 3) Ensure runtime directories are writable by the service user
+mkdir -p "$SCRIPT_DIR/logs" "$SCRIPT_DIR/data/csv"
+chown -R "$TARGET_USER":"$TARGET_USER" "$SCRIPT_DIR/logs" "$SCRIPT_DIR/data" || true
+chmod -R u+rwX,g+rwX,o+rX "$SCRIPT_DIR/logs" "$SCRIPT_DIR/data" || true
 
 # Helper: parse JSONC in bash via python to extract a value
 jsonc_get() {
