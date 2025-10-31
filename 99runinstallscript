@@ -1,0 +1,24 @@
+#!/bin/bash
+#1. make the sudo pw-less to bypass the popup, first on pi with :
+#a. sudo visudo
+#b.Add this line at the end (replace pi with your actual username if needed) remove # before pi:
+#pi ALL=(ALL) NOPASSWD: /usr/bin/apt-get
+
+#source the setup_boot.sh file to run the commands below.
+
+
+
+USER=pi
+HOME_DIR="/home/$USER"
+PROJECT_DIR="$HOME_DIR/deepak/enhanced_dashboard_system"
+if [ "$2" = "up" ]; then
+    echo "internet restarted at $(date '+%Y-%m-%d %H:%M:%S')" > "$HOME_DIR/Desktop/11.ok"
+    echo "Running check_and_install_ensure_pip_and_python.env.py script at $(date '+%Y-%m-%d %H:%M:%S')" > "$HOME_DIR/Desktop/dispatcher.log" 2>&1
+    /usr/bin/python3 "$PROJECT_DIR/check_and_install_ensure_pip_and_python.env.py" >> "$HOME_DIR/Desktop/dispatcher.log" 2>&1
+    echo "RTC set successfully at $(date '+%Y-%m-%d %H:%M:%S')" >> "$HOME_DIR/Desktop/dispatcher.log" 2>&1
+    /usr/bin/python3 "$PROJECT_DIR/rtc_new.py" --set-rtc >> "$HOME_DIR/Desktop/dispatcher.log" 2>&1
+    echo "Permissions updated for $USER user at $(date '+%Y-%m-%d %H:%M:%S')" >> "$HOME_DIR/Desktop/dispatcher.log" 2>&1
+    chown -R $USER:$USER "$HOME_DIR/Desktop/11.ok" "$HOME_DIR/Desktop/dispatcher.log" "$HOME_DIR/Desktop/pkg.status_succ" "$HOME_DIR/Desktop/simple-meter-dashboard" >> "$HOME_DIR/Desktop/dispatcher.log" 2>&1
+    echo "Ownership changed to $USER user at $(date '+%Y-%m-%d %H:%M:%S')" >> "$HOME_DIR/Desktop/dispatcher.log" 2>&1
+    echo "Script executed successfully at $(date '+%Y-%m-%d %H:%M:%S')" >> "$HOME_DIR/Desktop/dispatcher.log" 2>&1
+fi
