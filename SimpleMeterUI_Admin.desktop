@@ -2,7 +2,7 @@
 Type=Application
 Name=Simple Meter Dashboard (Admin)
 Comment=Launch Simple Meter Dashboard UI with admin privileges
-Exec=lxterminal -e 'sudo python3 /home/pi/Desktop/offline-setup-12Sep/simple_meter_ui.py; bash'
+Exec=lxterminal -e 'sudo /home/nandi2/Desktop/offline-setup-12Sep/venv313/bin/python /home/nandi2/Desktop/offline-setup-12Sep/simple_meter_ui.py; bash'
 Icon=utilities-terminal
 Terminal=true
 Categories=Utility;

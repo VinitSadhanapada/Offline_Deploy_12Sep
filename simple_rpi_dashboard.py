@@ -31,7 +31,11 @@ from pathlib import Path
 from datetime import datetime
 
 # Import shared venv utilities
-from venv_utils import setup_complete_venv_environment
+from venv_utils import (
+    setup_complete_venv_environment,
+    setup_venv_with_pip,
+    install_packages_in_venv,
+)
 
 
 def auto_use_venv_if_needed():
@@ -226,14 +230,28 @@ try:
 except Exception:
     DEVICE_CONFIG = list(_DEFAULT_DEVICES)
 
-REQUIRED_PACKAGES = [
-    "pymodbus==2.5.3",
-    "pyserial==3.5",
-    "paho-mqtt==2.1.0",
-    "termcolor==3.1.0",
-    "numpy==1.24.3",
-    "pandas==2.0.3"
-]
+def _build_required_packages_for_version(major: int, minor: int):
+    """Select package pins compatible with a specific Python version.
+    - For Python < 3.13: use numpy==1.26.4, pandas==2.0.3
+    - For Python >= 3.13: use numpy>=2.1,<3, pandas>=2.2,<3
+    """
+    base = [
+        "pymodbus==2.5.3",
+        "pyserial==3.5",
+        "paho-mqtt==2.1.0",
+        "termcolor==3.1.0",
+    ]
+    if (major, minor) >= (3, 13):
+        base += [
+            "numpy>=2.1,<3",
+            "pandas>=2.2,<3",
+        ]
+    else:
+        base += [
+            "numpy==1.26.4",
+            "pandas==2.0.3",
+        ]
+    return base
 
 
 class SimpleDashboard:
@@ -445,15 +463,56 @@ class SimpleDashboard:
                 offline_dir = str(offline_path)
                 break
 
-        # Use shared venv utility for complete setup
-        success, python_exe = setup_complete_venv_environment(
-            venv_dir=self.venv_dir,
-            packages=REQUIRED_PACKAGES,
-            force_recreate=False,
-            offline_dir=offline_dir
-        )
+        # Prefer the current interpreter (3.13+ on modern RPi) and do NOT downgrade to 3.11.
+        # We ship cp313 wheels and pin modern versions for >=3.13 in _build_required_packages_for_version.
+        preferred_python = None  # let setup_venv_with_pip use the invoking interpreter
 
+        # Do not force-recreate a working venv just because it's on 3.13+.
+        # Recreate only if explicitly requested by caller.
+        force_recreate = False
+
+        # (Preflight removed) We'll do wheel tag checks after venv creation using the venv interpreter.
+
+        # 1) Create the venv first using the preferred interpreter
+        success, python_exe = setup_venv_with_pip(self.venv_dir, force_recreate, preferred_python)
         if not success:
+            return False
+
+        # Determine the venv interpreter version to choose correct pins
+        ver_ok, ver_out, _ = self.run_command([str(python_exe), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], check=False)
+        venv_ver = ver_out.strip() if ver_ok else f"{sys.version_info.major}.{sys.version_info.minor}"
+        try:
+            maj, minr = map(int, venv_ver.split(".")[:2])
+        except Exception:
+            maj, minr = sys.version_info.major, sys.version_info.minor
+        required_packages = _build_required_packages_for_version(maj, minr)
+
+        # Optional: After venv exists, re-check numpy wheel tag compatibility against venv python
+        try:
+            if offline_dir:
+                from pathlib import Path as _P
+                import re as _re
+                vtag_ok, vtag_out, _ = self.run_command([str(python_exe), "-c", "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')"], check=False)
+                target_py = vtag_out.strip() if vtag_ok else f"cp{maj}{minr}"
+                offline_path = _P(offline_dir)
+                numpy_wheels = list(offline_path.glob('numpy-*.whl'))
+                if numpy_wheels:
+                    def _wheel_py_tags(name: str):
+                        return [p for p in name.split('-') if _re.fullmatch(r"cp\d{2,3}", p)]
+                    available_tags = sorted({t for f in numpy_wheels for t in _wheel_py_tags(f.name)})
+                    if available_tags and target_py not in available_tags:
+                        import platform as _platform
+                        arch = _platform.machine()
+                        print("⚠️ Offline numpy wheels found but none match the target interpreter.")
+                        print(f"   Available numpy wheel python tags: {', '.join(available_tags)}")
+                        print(f"   Current/target interpreter tag: {target_py}")
+                        plat_hint = "manylinux_2_17_aarch64.manylinux2014_aarch64" if arch == 'aarch64' else ("linux_armv7l" if arch.startswith('arm') else "manylinux")
+                        print(f"💡 Add: numpy wheel built for {target_py}, e.g.: numpy-<ver>-{target_py}-{target_py}-{plat_hint}.whl")
+        except Exception:
+            pass
+
+        # 2) Install packages into the created venv (offline aware)
+        if not install_packages_in_venv(python_exe, required_packages, offline_dir):
             print("❌ Environment setup failed")
             return False
 
@@ -466,13 +525,21 @@ class SimpleDashboard:
 
     def create_systemd_service(self):
         """Create systemd service for auto-startup."""
+        # Determine appropriate service user: prefer the invoking sudo user, then current user
+        svc_user = os.environ.get("SUDO_USER") or os.environ.get("USER") or "pi"
+        # Final sanity: basic username characters only
+        import re as _re_user
+        if not _re_user.fullmatch(r"[A-Za-z0-9._-]+", svc_user or ""):
+            svc_user = "pi"
+
         service_content = f"""[Unit]
 Description=Meter Reading Dashboard
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
+User={svc_user}
 WorkingDirectory={self.project_root}
 ExecStart={self.venv_dir}/bin/python {Path(__file__).resolve()} --run
 Restart=always
