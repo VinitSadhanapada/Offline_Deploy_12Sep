@@ -17,6 +17,36 @@
 	- Copy the `simple-meter-dashboard` folder to the Raspberry Pi Desktop.
 	- Double-click `simple_meter_ui.py` to launch the Technician UI.
 
+### Drag‑and‑Run Deployment (Offline Bundle)
+
+If you received the full offline bundle `offline-setup-12Sep/` (or `dist_minimal/` inside a tarball):
+
+1. Copy the entire `offline-setup-12Sep` folder to your Desktop (exact name expected by the launcher).
+2. Drag `SimpleMeterUI_Admin.desktop` from inside the folder onto the Desktop (or copy it there).
+3. Double‑click the desktop icon.
+	 - First run: it will auto-create a Python 3.13 virtual environment (using system 3.13 or the optional offline runtime tarball) and install packages from `packages_folder/`.
+	 - Subsequent runs: it reuses the existing `venv/`.
+4. When prompted about trusting the launcher (on some desktop environments), choose “Allow” or “Trust” to enable execution.
+
+What the launcher does internally:
+```
+cd "$HOME/Desktop/offline-setup-12Sep" \
+	&& ([[ -x venv/bin/python ]] || ./one_click_system_py313.sh) \
+	&& sudo ./venv/bin/python simple_meter_ui.py
+```
+
+Optional runtime fallback:
+- If the device does NOT have Python ≥ 3.13 and `python313_runtime.tar.gz` is included, the one‑click script extracts it into `/usr/local` and symlinks `/usr/local/bin/python3.13` before building the venv.
+- If Python 3.13 is already present system‑wide, the tarball is ignored.
+
+After first launch:
+- Service management (auto‑start, USB copy, cloud sync) can be enabled through the UI buttons or by running `sudo bash enable_auto_start.sh`.
+- CSV data will appear under `data/csv/` and logs under `logs/`.
+
+To relocate later:
+- Move the whole folder again to Desktop on the target Pi (keep name `offline-setup-12Sep`).
+- Reuse the same launcher icon (it looks for the folder in `$HOME/Desktop`).
+
 3. **Configuration**
 	- Device configuration lives at `/home/pi/meter_config/device_config.json`.
 	- Click **Configure Devices** in the UI to open the editor pre-filled from that file.
