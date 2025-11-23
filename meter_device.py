@@ -55,7 +55,7 @@ class MeterDevice:
     Methods:
         read_data(): Returns a list of parameter values (simulated or real).
     """
-    def __init__(self, name, model, parameters, client=None, error_file=None, simulation_mode=True, device_address=1):
+    def __init__(self, name, model, parameters, client=None, error_file=None, simulation_mode=False, device_address=1):
         """
         Initialize a new MeterDevice instance.
         
