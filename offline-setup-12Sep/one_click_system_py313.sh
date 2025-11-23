@@ -11,6 +11,8 @@ PY_SYS="python3"
 VENV_DIR="${SCRIPT_DIR}/venv"
 PACKAGES_DIR="${SCRIPT_DIR}/packages_folder"
 ENABLE_SERVICES=0
+START_UI=0
+ALLOW_SUDO=0
 REQUIRED_MAJOR=3
 REQUIRED_MINOR=13
 
@@ -26,6 +28,8 @@ done
 for arg in "$@"; do
   case "$arg" in
     --enable-services) ENABLE_SERVICES=1 ;;
+    --start-ui) START_UI=1 ;;
+    --allow-sudo) ALLOW_SUDO=1 ;;
     --venv-name=*) VENV_DIR="${SCRIPT_DIR}/${arg#*=}" ;;
     -h|--help)
       cat <<EOF
@@ -73,7 +77,49 @@ install_runtime_if_needed() {
 
   if [ "$major" -lt "$REQUIRED_MAJOR" ] || { [ "$major" -eq "$REQUIRED_MAJOR" ] && [ "$minor" -lt "$REQUIRED_MINOR" ]; }; then
     if [[ -n "$RUNTIME_TARBALL" ]]; then
-      info "System python3 is ${ver:-missing}; installing offline Python 3.13 runtime from: $RUNTIME_TARBALL"
+      info "System python3 is ${ver:-missing}; offline runtime tarball found: $RUNTIME_TARBALL"
+      # First try extracting the runtime locally inside the project (no sudo) so first-run on a fresh image
+      # can be passwordless. If that fails, fall back to installing under /usr/local (requires sudo).
+      local local_root="${SCRIPT_DIR}"
+      local local_install_dir="${local_root}/python-3.13.5"
+      info "Attempting project-local extraction to: $local_install_dir"
+      rm -rf "$local_install_dir" || true
+      if tar -tzf "$RUNTIME_TARBALL" >/dev/null 2>&1; then
+        if tar -xzf "$RUNTIME_TARBALL" -C "$local_root"; then
+          # Try to find python3.13 in extracted tree
+          local pybin=""
+          for guess in \
+            "$local_install_dir/bin/python3.13" \
+            "$local_root/python3.13.5/bin/python3.13" \
+            $local_root/python-3.13*/bin/python3.13 \
+            $local_root/*3.13*/bin/python3.13; do
+            for g in $guess; do
+              [[ -x "$g" ]] && { pybin="$g"; break; }
+            done
+            [[ -n "$pybin" ]] && break
+          done
+          if [[ -n "$pybin" ]]; then
+            PY_SYS="$pybin"
+            info "Using project-local runtime: $PY_SYS"
+            return
+          else
+            warn "Could not locate python3.13 in project-local extraction; cleaning up and falling back to system install"
+            rm -rf "$local_install_dir" || true
+          fi
+        else
+          warn "Project-local extraction failed; will try system-wide install as fallback"
+        fi
+      else
+        warn "Runtime tarball appears invalid: $RUNTIME_TARBALL; will try system-wide install as fallback"
+      fi
+
+      # Fallback to system-wide install (existing behavior). Only allowed when user passed --allow-sudo.
+      if [[ "$ALLOW_SUDO" -ne 1 ]]; then
+        err "Project-local extraction failed and system-wide install requires sudo."
+        err "Re-run with --allow-sudo to permit system-wide install, or provide a valid runtime tarball in the project to avoid sudo."
+        exit 1
+      fi
+      info "Falling back to system-wide install under /usr/local (requires sudo)"
       require sudo
       local dest_root="/usr/local"
       local install_dir="${dest_root}/python-3.13.5"
@@ -172,7 +218,18 @@ main() {
   enable_services
   echo
   ok "System Python 3.13 venv setup complete. Run dashboard:"
-  echo "  ${VENV_DIR}/bin/python simple_rpi_dashboard.py --run"
+      echo "  ${VENV_DIR}/bin/python simple_rpi_dashboard.py --run"
 }
 
 main "$@"
+
+# If requested, after successful setup launch the GUI using venv python
+if [[ "$START_UI" -eq 1 ]]; then
+  if [[ -x "${VENV_DIR}/bin/python" ]]; then
+    info "Launching Simple Meter UI using: ${VENV_DIR}/bin/python"
+    exec "${VENV_DIR}/bin/python" simple_meter_ui.py
+  else
+    err "Venv python not found; cannot launch UI"
+    exit 1
+  fi
+fi
