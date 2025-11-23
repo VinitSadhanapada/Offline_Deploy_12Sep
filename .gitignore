@@ -1,0 +1,30 @@
+# Virtual environments
+offline-setup-12Sep/venv/
+**/venv/
+venv/
+
+# Python build / caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+build/
+dist/
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+
+# Local environment files
+.env
+.env.local
+
+# dist_minimal
+dist_minimal/
+
+# One-off temp venvs created during testing
+offline-setup-12Sep/temp_venv/
+offline-setup-12Sep/check_nosudo/
+**/temp_venv/
+**/check_nosudo/
