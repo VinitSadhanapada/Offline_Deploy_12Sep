@@ -53,7 +53,10 @@ def _read_jsonc(path):
 def _load_mqtt_config():
     cfg = dict(DEFAULTS)
     # Prefer project config file if present
-    cfg_path = os.path.join(os.path.dirname(__file__), "config.jsonc")
+    # Prefer externalized config at /home/pi/meter_config, then local project copy
+    cfg_path = os.path.join("/home/pi/meter_config", "config.jsonc")
+    if not os.path.exists(cfg_path):
+        cfg_path = os.path.join(os.path.dirname(__file__), "config.jsonc")
     if os.path.exists(cfg_path):
         data = _read_jsonc(cfg_path)
         # Accept either top-level keys or nested MQTT section
