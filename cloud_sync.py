@@ -9,7 +9,7 @@ Purpose:
   - rsync over SSH (if rsync installed)
   - scp fallback (simple copy; may overwrite)
 
-Config (config.jsonc):
+Config (config.json):
 cloud_sync: {
   enabled: true|false,
   method: "rclone"|"rsync"|"scp",
@@ -86,14 +86,14 @@ def load_jsonc(path: Path) -> Dict:
 
 
 def load_config() -> Dict:
-    alt = Path("/home/pi/meter_config/config.jsonc")
-    cfg_path = alt if alt.exists() else (ROOT / "config.jsonc")
+    alt = Path("/home/pi/meter_config/config.json")
+    cfg_path = alt if alt.exists() else (ROOT / "config.json")
     if not cfg_path.exists():
         return {}
     try:
         return load_jsonc(cfg_path)
     except Exception as e:
-        log(f"[WARN] Failed to parse config.jsonc: {e}")
+        log(f"[WARN] Failed to parse config.json: {e}")
         return {}
 
 

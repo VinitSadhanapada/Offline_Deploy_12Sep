@@ -15,7 +15,7 @@ from datetime import datetime
 # Prefer legacy_core imports; then legacy flat root imports
 # Ensure project root on path for legacy layout
 this_dir = Path(__file__).resolve().parent
-project_root_guess = this_dir if (this_dir / "config.jsonc").exists() else this_dir.parent
+project_root_guess = this_dir if (this_dir / "config.json").exists() else this_dir.parent
 if str(project_root_guess) not in sys.path:
     sys.path.insert(0, str(project_root_guess))
 try:
@@ -61,7 +61,7 @@ except Exception:
 
 # Determine project root and prepare dirs early (MQTT and logs depend on this)
 script_dir = Path(__file__).resolve().parent
-project_root = script_dir if (script_dir / "config.jsonc").exists() else script_dir.parent
+project_root = script_dir if (script_dir / "config.json").exists() else script_dir.parent
 logs_dir = project_root / "logs"
 csv_dir = project_root / "data" / "csv"
 os.makedirs(csv_dir, exist_ok=True)
@@ -75,7 +75,7 @@ for device in DEVICE_CONFIG:
     filename = str(csv_dir / f"{clean_name}_{timestamp}.csv")
     csv_filenames.append(filename)
 
-# Initialize MQTT (will read local config.jsonc)
+# Initialize MQTT (will read local config.json)
 mqtt.mqtt_main()
 
 # Setup Modbus client

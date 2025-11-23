@@ -7,7 +7,7 @@ This guide assumes a newly flashed Raspberry Pi OS image that already includes *
 Copy the entire `offline-setup-12Sep/` directory (or a slimmed subset) containing:
 - `packages_folder/` (wheelhouse; update to include `cp313` wheels if using Python 3.13)
 - Project scripts: `simple_rpi_dashboard.py`, `simple_meter_ui.py`, services scripts (`enable_auto_start.sh`, `usb_csv_auto_copy.py`, `cloud_sync.py`, etc.)
-- Config files: `config.jsonc`, `device_config.jsonc`
+- Config files: `config.json`, `device_config.json`
 - (Optional) Python runtime tarball(s): `python3.11-dist.tar.gz` + checksum if you need Python 3.11 side‑by‑side.
 - Support docs: `README_PY311.md`, `UPGRADE_PYTHON_3.13.md`
 

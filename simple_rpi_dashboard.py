@@ -202,12 +202,10 @@ _SCRIPT_DIR = Path(__file__).parent.absolute()
 _config_candidates = [
     _CONFIG_DIR / "config.json",
     _SCRIPT_DIR / "config.json",
-    _SCRIPT_DIR / "config.jsonc",
 ]
 _device_candidates = [
     _CONFIG_DIR / "device_config.json",
     _SCRIPT_DIR / "device_config.json",
-    _SCRIPT_DIR / "device_config.jsonc",
 ]
 
 def _first_existing(paths):
@@ -260,9 +258,9 @@ class SimpleDashboard:
     def __init__(self):
         self.script_dir = Path(__file__).resolve().parent
         # Determine project root: if running from scripts/, use parent; else current
-        if (self.script_dir / "config.jsonc").exists():
+        if (self.script_dir / "config.json").exists():
             self.project_root = self.script_dir
-        elif (self.script_dir.parent / "config.jsonc").exists():
+        elif (self.script_dir.parent / "config.json").exists():
             self.project_root = self.script_dir.parent
         else:
             # Fallback to script dir

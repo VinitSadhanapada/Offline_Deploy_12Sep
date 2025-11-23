@@ -17,7 +17,7 @@ Defaults are aligned to the local ingest script in simple-meter-dashboard/iot_sc
 It enriches payloads with metadata fields that the ingest expects.
 """
 
-# Defaults (can be overridden by config.jsonc or environment)
+# Defaults (can be overridden by config.json or environment)
 DEFAULTS = {
     "MQTT_BROKER": os.environ.get("MQTT_BROKER", "localhost"),
     "MQTT_PORT": int(os.environ.get("MQTT_PORT", "1883")),
@@ -54,9 +54,9 @@ def _load_mqtt_config():
     cfg = dict(DEFAULTS)
     # Prefer project config file if present
     # Prefer externalized config at /home/pi/meter_config, then local project copy
-    cfg_path = os.path.join("/home/pi/meter_config", "config.jsonc")
+    cfg_path = os.path.join("/home/pi/meter_config", "config.json")
     if not os.path.exists(cfg_path):
-        cfg_path = os.path.join(os.path.dirname(__file__), "config.jsonc")
+        cfg_path = os.path.join(os.path.dirname(__file__), "config.json")
     if os.path.exists(cfg_path):
         data = _read_jsonc(cfg_path)
         # Accept either top-level keys or nested MQTT section

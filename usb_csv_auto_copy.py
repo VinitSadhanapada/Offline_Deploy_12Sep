@@ -5,7 +5,7 @@ USB CSV Auto-Copy Service
 Purpose:
 - Detect mounted USB drives and copy new/updated CSV files from data/csv to the USB.
 - Safe, idempotent copies using per-device state and atomic temp files.
-- Config-driven via config.jsonc under key "usb_copy".
+- Config-driven via config.json under key "usb_copy".
 
 CLI:
 - --once: run a single scan/copy pass and exit
@@ -77,15 +77,15 @@ def load_jsonc(path: Path) -> Dict:
 
 
 def load_config() -> Dict:
-    alt = Path("/home/pi/meter_config/config.jsonc")
-    cfg_path = alt if alt.exists() else (ROOT / "config.jsonc")
+    alt = Path("/home/pi/meter_config/config.json")
+    cfg_path = alt if alt.exists() else (ROOT / "config.json")
     if not cfg_path.exists():
         return {}
     try:
         cfg = load_jsonc(cfg_path)
         return cfg or {}
     except Exception as e:
-        log(f"[WARN] Failed to parse config.jsonc: {e}")
+        log(f"[WARN] Failed to parse config.json: {e}")
         return {}
 
 

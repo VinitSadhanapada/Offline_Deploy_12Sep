@@ -59,7 +59,7 @@ jsonc_get() {
 	local key_path="$1" # e.g. usb_copy.enabled
 	"$PY_EXEC" - "$key_path" <<'PY'
 import json, re, sys, pathlib
-cfg = pathlib.Path('config.jsonc').read_text()
+	cfg = pathlib.Path('config.json').read_text()
 def strip(line):
 	in_str = False
 	esc = False

@@ -50,8 +50,8 @@ def net_up(host: str, port: int, timeout: float = 2.0) -> bool:
 
 
 def main() -> int:
-    alt = Path("/home/pi/meter_config/config.jsonc")
-    cfg = load_jsonc(alt if alt.exists() else (ROOT / "config.jsonc"))
+    alt = Path("/home/pi/meter_config/config.json")
+    cfg = load_jsonc(alt if alt.exists() else (ROOT / "config.json"))
     cloud = cfg.get("cloud_sync", {})
     enabled = bool(cloud.get("enabled", False))
     if not enabled:

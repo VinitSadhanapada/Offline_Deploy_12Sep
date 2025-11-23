@@ -178,8 +178,7 @@ class SimpleMeterUI(tk.Tk):
                 # prefer local .json, then .jsonc for backward compatibility
                 local_dir = os.path.dirname(os.path.abspath(__file__))
                 local_json = os.path.join(local_dir, "config.json")
-                local_jsonc = os.path.join(local_dir, "config.jsonc")
-                config_path = local_json if os.path.exists(local_json) else local_jsonc
+                config_path = local_json
             with open(config_path, "r") as f:
                 content = f.read()
             # Remove comments
@@ -218,18 +217,18 @@ class SimpleMeterUI(tk.Tk):
             return {}
 
     def _save_config_json(self, cfg: dict):
-        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.jsonc")
+        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
         try:
             with open(cfg_path, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, indent=4)
             return True
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to write config.jsonc: {e}")
+            messagebox.showerror("Error", f"Failed to write config.json: {e}")
             return False
 
     def _get_cloud_enabled_safe(self) -> bool:
         try:
-            cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.jsonc")
+            cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
             cfg = self._load_jsonc(cfg_path)
             cloud = cfg.get("cloud_sync", {})
             return bool(cloud.get("enabled", False))
@@ -292,7 +291,7 @@ class SimpleMeterUI(tk.Tk):
 
     def on_toggle_cloud_sync(self):
         enabled = bool(self.cloud_enabled_var.get())
-        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.jsonc")
+        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
         cfg = self._load_jsonc(cfg_path)
         if "cloud_sync" not in cfg:
             cfg["cloud_sync"] = {}
