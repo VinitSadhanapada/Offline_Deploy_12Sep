@@ -461,37 +461,13 @@ class SimpleDashboard:
                 offline_dir = str(offline_path)
                 break
 
-        # Prefer Python 3.11 interpreter when available for widest wheel support (numpy 1.26.x + pandas 2.0.x)
-        preferred_python = None
-        for candidate in [
-            # Strong preference: locally built or packaged Python 3.11
-            "/usr/local/bin/python3.11", "/usr/bin/python3.11",
-            # Secondary: 3.12 if 3.11 not available (still has numpy 1.26 wheels)
-            "/usr/local/bin/python3.12", "/usr/bin/python3.12",
-            # Fallback list can be extended here before resorting to current interpreter
-        ]:
-            if Path(candidate).exists():
-                preferred_python = candidate
-                print(f"🐍 Using preferred interpreter for venv: {preferred_python}")
-                break
+        # Prefer the current interpreter (3.13+ on modern RPi) and do NOT downgrade to 3.11.
+        # We ship cp313 wheels and pin modern versions for >=3.13 in _build_required_packages_for_version.
+        preferred_python = None  # let setup_venv_with_pip use the invoking interpreter
 
-        # Decide whether to recreate venv if it's using an incompatible Python (e.g., 3.13 with numpy<2)
+        # Do not force-recreate a working venv just because it's on 3.13+.
+        # Recreate only if explicitly requested by caller.
         force_recreate = False
-        if self.venv_dir.exists():
-            vpy = self.venv_dir / "bin" / "python"
-            if vpy.exists():
-                try:
-                    ok, out, _ = self.run_command([str(vpy), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], check=False)
-                    if ok:
-                        ver = out.strip()
-                        if ver and ver >= "3.13":
-                            if preferred_python:
-                                print(f"♻️ Existing venv uses Python {ver}, which is incompatible with pinned numpy/pandas; recreating with {preferred_python}...")
-                                force_recreate = True
-                            else:
-                                print(f"⚠️ Existing venv uses Python {ver}. Consider installing Python 3.11 and rerunning setup for better wheel support.")
-                except Exception:
-                    pass
 
         # (Preflight removed) We'll do wheel tag checks after venv creation using the venv interpreter.
 

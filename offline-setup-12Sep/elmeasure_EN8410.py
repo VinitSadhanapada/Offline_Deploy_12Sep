@@ -1,4 +1,13 @@
-from pymodbus.constants import Endian
+try:
+    from pymodbus.constants import Endian
+except Exception:
+    try:
+        from pymodbus.payload import Endian
+    except Exception:
+        class _EndianShim:
+            Big = 'big'
+            Little = 'little'
+        Endian = _EndianShim
 from pymodbus.payload import BinaryPayloadDecoder
 import datetime
 
