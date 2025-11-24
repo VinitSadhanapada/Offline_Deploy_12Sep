@@ -1,0 +1,900 @@
+2025-11-24 08:06:23,781 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:06:23,963 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:06:23,968 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:06:26,335 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:06:26,473 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:06:26,477 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:06:28,147 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:06:28,284 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:06:28,289 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:06:29,278 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:06:29,416 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:06:29,421 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:06:30,445 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:06:30,588 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:06:30,593 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:07:45,915 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:07:46,090 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:07:46,099 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:08:00,731 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:08:00,880 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:08:00,885 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:08:02,905 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:08:03,086 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:08:03,091 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:08:04,878 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:08:05,019 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:08:05,024 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:08:06,470 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:08:06,624 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:08:06,630 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:13:53,066 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:13:53,212 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:13:53,217 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:13:54,851 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:13:54,994 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:13:54,999 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:18:56,098 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:18:56,231 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:18:56,235 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:19:06,629 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:19:06,763 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:19:06,768 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:19:13,949 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:19:14,082 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:19:14,086 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:19:24,543 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:19:24,679 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:19:24,683 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:19:35,087 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:19:35,221 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:19:35,225 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:19:44,131 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:19:44,268 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:19:44,272 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:24:52,170 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:24:52,332 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:24:52,338 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:25:14,738 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:25:14,874 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:25:14,879 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:49:34,631 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:49:34,773 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:49:34,778 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:53:43,602 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:53:43,740 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:53:43,745 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:53:44,989 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:53:45,127 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:53:45,132 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:53:46,266 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:53:46,407 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:53:46,412 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:53:47,708 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:53:47,846 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:53:47,851 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:53:49,425 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:53:49,562 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:53:49,567 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:57:33,392 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:57:33,537 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:57:33,542 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:57:42,825 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:57:42,971 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:57:42,976 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:57:55,878 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:57:56,053 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:57:56,061 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:57:57,101 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:57:57,257 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:57:57,267 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:57:58,258 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:57:58,396 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:57:58,401 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:57:59,328 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:57:59,475 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:57:59,480 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:58:00,474 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:58:00,626 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:58:00,633 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:58:01,850 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:58:01,989 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:58:01,995 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:58:03,000 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:58:03,169 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:58:03,174 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:58:04,162 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:58:04,306 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:58:04,312 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 08:58:17,843 - INFO - Starting dashboard in headless mode...
+2025-11-24 08:58:17,987 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 08:58:17,992 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 09:01:58,699 - INFO - Starting dashboard in headless mode...
+2025-11-24 09:01:58,839 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 09:01:58,844 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 09:02:00,177 - INFO - Starting dashboard in headless mode...
+2025-11-24 09:02:00,320 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 09:02:00,327 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 09:03:17,652 - INFO - Starting dashboard in headless mode...
+2025-11-24 09:03:17,799 - ERROR - Dashboard error: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 09:03:17,804 - ERROR - Full traceback: Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 763, in run_dashboard
+    from legacy_core.macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'legacy_core'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/nandi2/Desktop/offline-setup-12Sep/simple_rpi_dashboard.py", line 788, in run_dashboard
+    from macros import PARAMETERS  # type: ignore
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nandi2/Desktop/offline-setup-12Sep/macros.py", line 29, in <module>
+    import elmeasure_LG6400 as LG6400
+  File "/home/nandi2/Desktop/offline-setup-12Sep/elmeasure_LG6400.py", line 1, in <module>
+    from pymodbus.constants import Endian
+ImportError: cannot import name 'Endian' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+
+2025-11-24 09:18:31,462 - INFO - Starting dashboard in headless mode...
+2025-11-24 09:18:31,522 - INFO - Modules imported successfully
+2025-11-24 09:18:31,522 - INFO - Initializing RTC system for offline time keeping...
+2025-11-24 09:18:31,523 - WARNING - ⚠️ RTC initialization error: No module named 'rtc_manager' - using system time only
+2025-11-24 09:18:31,554 - ERROR - Failed to import pymodbus: cannot import name 'ExcCodes' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 09:18:31,669 - INFO - Dashboard started with 1 devices
+2025-11-24 09:19:16,694 - INFO - Completed 10 reading cycles
+2025-11-24 09:20:06,713 - INFO - Completed 20 reading cycles
+2025-11-24 09:20:56,730 - INFO - Completed 30 reading cycles
+2025-11-24 09:21:46,754 - INFO - Completed 40 reading cycles
+2025-11-24 09:22:36,775 - INFO - Completed 50 reading cycles
+2025-11-24 09:23:26,797 - INFO - Completed 60 reading cycles
+2025-11-24 09:24:16,818 - INFO - Completed 70 reading cycles
+2025-11-24 09:25:06,833 - INFO - Completed 80 reading cycles
+2025-11-24 09:25:56,865 - INFO - Completed 90 reading cycles
+2025-11-24 09:26:46,893 - INFO - Completed 100 reading cycles
+2025-11-24 09:27:36,912 - INFO - Completed 110 reading cycles
+2025-11-24 09:28:26,930 - INFO - Completed 120 reading cycles
+2025-11-24 09:29:16,951 - INFO - Completed 130 reading cycles
+2025-11-24 09:30:04,457 - INFO - Received signal 15. Shutting down...
+2025-11-24 09:30:06,568 - INFO - Starting dashboard in headless mode...
+2025-11-24 09:30:06,603 - INFO - Modules imported successfully
+2025-11-24 09:30:06,603 - INFO - Initializing RTC system for offline time keeping...
+2025-11-24 09:30:06,605 - WARNING - ⚠️ RTC initialization error: No module named 'rtc_manager' - using system time only
+2025-11-24 09:30:06,635 - ERROR - Failed to import pymodbus: cannot import name 'ExcCodes' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 09:30:06,735 - INFO - Dashboard started with 1 devices
+2025-11-24 09:30:51,773 - INFO - Completed 10 reading cycles
+2025-11-24 09:31:41,790 - INFO - Completed 20 reading cycles
+2025-11-24 09:31:47,690 - INFO - Received signal 15. Shutting down...
+2025-11-24 09:32:05,049 - INFO - Starting dashboard in headless mode...
+2025-11-24 09:32:05,107 - INFO - Modules imported successfully
+2025-11-24 09:32:05,107 - INFO - Initializing RTC system for offline time keeping...
+2025-11-24 09:32:05,108 - WARNING - ⚠️ RTC initialization error: No module named 'rtc_manager' - using system time only
+2025-11-24 09:32:05,177 - ERROR - Failed to import pymodbus: cannot import name 'ExcCodes' from 'pymodbus.constants' (/home/nandi2/Desktop/offline-setup-12Sep/venv/lib/python3.13/site-packages/pymodbus/constants.py)
+2025-11-24 09:32:05,406 - INFO - Dashboard started with 1 devices
+2025-11-24 09:33:09,085 - INFO - Completed 10 reading cycles
+2025-11-24 09:33:59,111 - INFO - Completed 20 reading cycles
+2025-11-24 09:34:49,139 - INFO - Completed 30 reading cycles
+2025-11-24 09:35:39,165 - INFO - Completed 40 reading cycles
+2025-11-24 09:36:29,187 - INFO - Completed 50 reading cycles
+2025-11-24 09:37:19,215 - INFO - Completed 60 reading cycles
+2025-11-24 09:38:09,242 - INFO - Completed 70 reading cycles
+2025-11-24 09:38:59,271 - INFO - Completed 80 reading cycles
+2025-11-24 09:39:49,294 - INFO - Completed 90 reading cycles
+2025-11-24 09:40:39,320 - INFO - Completed 100 reading cycles
+2025-11-24 09:41:29,347 - INFO - Completed 110 reading cycles
+2025-11-24 09:42:19,363 - INFO - Completed 120 reading cycles
+2025-11-24 09:43:09,391 - INFO - Completed 130 reading cycles
+2025-11-24 09:43:59,421 - INFO - Completed 140 reading cycles
+2025-11-24 09:44:49,449 - INFO - Completed 150 reading cycles
+2025-11-24 09:45:39,470 - INFO - Completed 160 reading cycles
+2025-11-24 09:46:29,490 - INFO - Completed 170 reading cycles
+2025-11-24 09:47:19,511 - INFO - Completed 180 reading cycles
+2025-11-24 09:48:09,526 - INFO - Completed 190 reading cycles
+2025-11-24 09:48:59,551 - INFO - Completed 200 reading cycles
+2025-11-24 09:49:49,571 - INFO - Completed 210 reading cycles
+2025-11-24 09:50:39,592 - INFO - Completed 220 reading cycles
+2025-11-24 09:51:29,612 - INFO - Completed 230 reading cycles
+2025-11-24 09:52:19,630 - INFO - Completed 240 reading cycles
+2025-11-24 09:53:09,650 - INFO - Completed 250 reading cycles
+2025-11-24 09:53:59,669 - INFO - Completed 260 reading cycles
+2025-11-24 09:54:49,686 - INFO - Completed 270 reading cycles
+2025-11-24 09:55:39,706 - INFO - Completed 280 reading cycles
+2025-11-24 09:56:29,728 - INFO - Completed 290 reading cycles
+2025-11-24 09:57:19,748 - INFO - Completed 300 reading cycles
+2025-11-24 09:58:09,769 - INFO - Completed 310 reading cycles
+2025-11-24 09:58:59,787 - INFO - Completed 320 reading cycles
+2025-11-24 09:59:49,805 - INFO - Completed 330 reading cycles
+2025-11-24 10:00:39,826 - INFO - Completed 340 reading cycles
+2025-11-24 10:01:29,848 - INFO - Completed 350 reading cycles
+2025-11-24 10:02:19,867 - INFO - Completed 360 reading cycles
+2025-11-24 10:03:09,890 - INFO - Completed 370 reading cycles
+2025-11-24 10:03:59,911 - INFO - Completed 380 reading cycles
+2025-11-24 10:04:49,933 - INFO - Completed 390 reading cycles
+2025-11-24 10:05:39,955 - INFO - Completed 400 reading cycles
+2025-11-24 10:06:29,976 - INFO - Completed 410 reading cycles
+2025-11-24 10:07:19,995 - INFO - Completed 420 reading cycles
+2025-11-24 10:08:10,014 - INFO - Completed 430 reading cycles
+2025-11-24 10:09:00,030 - INFO - Completed 440 reading cycles
+2025-11-24 10:09:50,044 - INFO - Completed 450 reading cycles
+2025-11-24 10:10:40,060 - INFO - Completed 460 reading cycles
+2025-11-24 10:11:30,074 - INFO - Completed 470 reading cycles
+2025-11-24 10:12:20,088 - INFO - Completed 480 reading cycles
+2025-11-24 10:13:10,103 - INFO - Completed 490 reading cycles
+2025-11-24 10:14:00,117 - INFO - Completed 500 reading cycles
+2025-11-24 10:14:50,129 - INFO - Completed 510 reading cycles
+2025-11-24 10:15:40,139 - INFO - Completed 520 reading cycles
+2025-11-24 10:16:30,149 - INFO - Completed 530 reading cycles
+2025-11-24 10:17:20,160 - INFO - Completed 540 reading cycles
+2025-11-24 10:18:10,170 - INFO - Completed 550 reading cycles
+2025-11-24 10:19:00,179 - INFO - Completed 560 reading cycles
+2025-11-24 10:19:50,188 - INFO - Completed 570 reading cycles
+2025-11-24 10:20:40,202 - INFO - Completed 580 reading cycles
+2025-11-24 10:21:30,217 - INFO - Completed 590 reading cycles
+2025-11-24 10:22:20,234 - INFO - Completed 600 reading cycles
+2025-11-24 10:23:10,244 - INFO - Completed 610 reading cycles
+2025-11-24 10:24:00,254 - INFO - Completed 620 reading cycles
+2025-11-24 10:24:50,263 - INFO - Completed 630 reading cycles
+2025-11-24 10:25:40,274 - INFO - Completed 640 reading cycles
+2025-11-24 10:26:30,287 - INFO - Completed 650 reading cycles

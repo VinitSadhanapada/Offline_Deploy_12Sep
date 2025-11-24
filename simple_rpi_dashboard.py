@@ -30,12 +30,25 @@ import logging
 from pathlib import Path
 from datetime import datetime
 
-# Import shared venv utilities
-from venv_utils import (
-    setup_complete_venv_environment,
-    setup_venv_with_pip,
-    install_packages_in_venv,
-)
+# Import shared venv utilities (try local, then parent repo)
+try:
+    from venv_utils import (
+        setup_complete_venv_environment,
+        setup_venv_with_pip,
+        install_packages_in_venv,
+    )
+except Exception:
+    # If running from offline-setup-12Sep where venv_utils lives in parent, try that
+    import sys
+    from pathlib import Path as _P
+    parent = _P(__file__).resolve().parent.parent
+    if str(parent) not in sys.path:
+        sys.path.insert(0, str(parent))
+    from venv_utils import (
+        setup_complete_venv_environment,
+        setup_venv_with_pip,
+        install_packages_in_venv,
+    )
 
 
 def auto_use_venv_if_needed():
@@ -514,9 +527,9 @@ class SimpleDashboard:
             print("❌ Environment setup failed")
             return False
 
-        # Create additional directories
-        self.log_dir.mkdir(exist_ok=True)
-        self.csv_dir.mkdir(exist_ok=True)
+        # Create additional directories (ensure parents exist)
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+            self.csv_dir.mkdir(parents=True, exist_ok=True)
 
         # Ensure canonical external config exists at /home/pi/meter_config/config.json
         try:

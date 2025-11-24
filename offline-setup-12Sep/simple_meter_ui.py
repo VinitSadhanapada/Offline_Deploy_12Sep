@@ -4,6 +4,7 @@ from tkinter import scrolledtext, messagebox, filedialog
 import subprocess
 import threading
 import os
+import signal
 import json
 import re
 
@@ -462,7 +463,20 @@ class SimpleMeterUI(tk.Tk):
         threading.Thread(target=self._start_and_stream_output, args=(cmd, None, on_complete), daemon=True).start()
 
     def _start_and_stream_output(self, cmd, update_interval=None, on_complete=None):
-        self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        # Start the subprocess in its own process group so signals sent to the UI
+        # (or its parent process) do not automatically propagate to the dashboard.
+        # This prevents the dashboard from receiving SIGTERM when the UI is closed.
+        try:
+            self.proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                preexec_fn=os.setsid,
+            )
+        except TypeError:
+            # Windows or older environments may not support preexec_fn; fall back
+            self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         if update_interval is not None:
             self._stream_output_interval(update_interval)
         else:
@@ -555,7 +569,14 @@ class SimpleMeterUI(tk.Tk):
     def stop_script(self):
         try:
             if self.proc and self.proc.poll() is None:
-                self.proc.terminate()
+                try:
+                    # Terminate the whole process group so child processes are cleaned up.
+                    os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
+                except Exception:
+                    try:
+                        self.proc.terminate()
+                    except Exception:
+                        pass
                 if self.output_window is not None:
                     self.output_window.insert("\n--- Script stopped by user ---\n")
                 self.status_label.config(text="Script stopped.")
@@ -577,8 +598,11 @@ class SimpleMeterUI(tk.Tk):
     def manual_run(self):
         # Only disable Manual Run button, keep Live Readings enabled
         dashboard_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "simple_rpi_dashboard.py")
+        # Prefer using the local venv python when available so behavior matches CLI
+        venv_py = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv", "bin", "python")
+        cmd = [venv_py, dashboard_path, "--run", "--force-mqtt"] if os.path.exists(venv_py) else ["python3", dashboard_path, "--run", "--force-mqtt"]
         # Force-enable MQTT publishing during Manual Run so results are pushed to the broker
-        self.run_script_window(["python3", dashboard_path, "--run", "--force-mqtt"], "Manual Run Output", True, False)
+        self.run_script_window(cmd, "Manual Run Output", True, False)
 
     def live_readings(self):
         # Open a modal window to show live readings from CSV

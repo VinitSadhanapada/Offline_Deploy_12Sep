@@ -4,6 +4,7 @@ from tkinter import scrolledtext, messagebox, filedialog
 import subprocess
 import threading
 import os
+import signal
 import json
 import re
 
@@ -462,7 +463,20 @@ class SimpleMeterUI(tk.Tk):
         threading.Thread(target=self._start_and_stream_output, args=(cmd, None, on_complete), daemon=True).start()
 
     def _start_and_stream_output(self, cmd, update_interval=None, on_complete=None):
-        self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        # Start the subprocess in its own process group so signals sent to the UI
+        # don't propagate to the dashboard process. This prevents accidental
+        # termination of the dashboard when the UI receives signals.
+        try:
+            self.proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                preexec_fn=os.setsid,
+            )
+        except TypeError:
+            # Some environments (notably Windows) don't support preexec_fn; fall back.
+            self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         if update_interval is not None:
             self._stream_output_interval(update_interval)
         else:
@@ -555,7 +569,14 @@ class SimpleMeterUI(tk.Tk):
     def stop_script(self):
         try:
             if self.proc and self.proc.poll() is None:
-                self.proc.terminate()
+                try:
+                    # Kill the whole process group to ensure child processes are terminated.
+                    os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
+                except Exception:
+                    try:
+                        self.proc.terminate()
+                    except Exception:
+                        pass
                 if self.output_window is not None:
                     self.output_window.insert("\n--- Script stopped by user ---\n")
                 self.status_label.config(text="Script stopped.")
