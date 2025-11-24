@@ -600,6 +600,19 @@ class LiveReadingsWindow(tk.Toplevel):
         # Use single consolidated CSV file
         csv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "csv")
         single_csv = os.path.join(csv_dir, "readings_all.csv")
+
+        # Ensure CSV directory exists and provide a minimal CSV file if missing
+        try:
+            os.makedirs(csv_dir, exist_ok=True)
+            if not os.path.exists(single_csv):
+                import csv as _csv
+                with open(single_csv, "w", newline='') as _f:
+                    writer = _csv.writer(_f)
+                    # Minimal header expected by MeterManager/UI
+                    writer.writerow(["Device_ID", "Meter_Name", "Time", "Model"])
+        except Exception:
+            # Best-effort: continue without blocking the UI
+            pass
         self.tabs = {}
         tab = tk.Frame(self.notebook)
         # Add a canvas and scrollbar to the tab for scrolling
