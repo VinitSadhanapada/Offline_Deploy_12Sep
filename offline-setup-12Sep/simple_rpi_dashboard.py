@@ -542,7 +542,49 @@ class SimpleDashboard:
         self.log_dir.mkdir(exist_ok=True)
         self.csv_dir.mkdir(exist_ok=True)
 
-        print("✅ Environment setup complete")
+        # Ensure canonical external config exists at /home/pi/meter_config/config.json
+        try:
+            from shutil import copy2
+            dest_dir = _CONFIG_DIR
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_file = dest_dir / "config.json"
+
+            if dest_file.exists():
+                print(f"✅ External config already present: {dest_file}")
+            else:
+                src_json = self.project_root / "config.json"
+                src_jsonc = self.project_root / "config.jsonc"
+
+                if src_json.exists():
+                    copy2(str(src_json), str(dest_file))
+                    print(f"✅ Copied existing project config.json -> {dest_file}")
+                elif src_jsonc.exists():
+                    # Convert jsonc -> strict json and write
+                    try:
+                        txt = src_jsonc.read_text()
+                        cleaned = _strip_jsonc_comments(txt)
+                        import json as _json
+                        obj = _json.loads(cleaned)
+                        dest_file.write_text(_json.dumps(obj, indent=4))
+                        print(f"✅ Converted config.jsonc -> {dest_file}")
+                    except Exception as e:
+                        print(f"⚠️ Failed converting {src_jsonc} to strict JSON: {e}")
+                else:
+                    # Fallback: write minimal default config to avoid runtime missing-file errors
+                    try:
+                        import json as _json
+                        base = dict(_DEFAULT_CONFIG)
+                        dest_file.write_text(_json.dumps(base, indent=4))
+                        print(f"ℹ️ Wrote default config to {dest_file}")
+                    except Exception:
+                        print(f"⚠️ Failed to write fallback config to {dest_file}")
+
+            print("✅ Environment setup complete")
+        except Exception as e:
+            print(f"⚠️ Warning: could not ensure /home/pi/meter_config/config.json: {e}")
+
+        # Note: ownership (chown to 'pi:pi') may be required when running on the Pi.
+        # Do not attempt to chown here to avoid failures on non-Pi hosts.
         return True
 
     def create_systemd_service(self):
