@@ -1,0 +1,62 @@
+nohup: ignoring input
+2025-10-18 20:40:38,069 - INFO - [Before try block] USER(env): pi | USER(pwd): pi
+2025-10-18 20:40:38,071 - INFO - [Inside try block] USER(env): pi | USER(pwd): pi
+2025-10-18 20:40:38,140 - INFO - ⏰ Internet detected. RTC time updated from internet (rtc_new.py --set-rtc)...
+2025-10-18 20:40:38,272 - INFO - ✅ RTC time set successfully.
+2025-10-18 20:40:38,394 - INFO - [Before try block] USER(env): pi | USER(pwd): pi
+2025-10-18 20:40:38,394 - INFO - [Inside try block] USER(env): pi | USER(pwd): pi
+2025-10-18 20:40:38,574 - INFO - ⏰ Internet detected. RTC time updated from internet (rtc_new.py --set-rtc)...
+2025-10-18 20:40:38,678 - INFO - ✅ RTC time set successfully.
+2025-10-18 20:40:38,688 - INFO - Starting dashboard in headless mode...
+2025-10-18 20:40:38,847 - INFO - Modules imported successfully
+2025-10-18 20:40:38,847 - INFO - Initializing RTC system for offline time keeping...
+2025-10-18 20:40:38,848 - WARNING - ⚠️ RTC initialization error: No module named 'rtc_manager' - using system time only
+2025-10-18 20:40:38,851 - INFO - Dashboard started for location 'KONDRAI' with 1 devices, writing to /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:41:23,886 - INFO - Completed 10 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:42:13,904 - INFO - Completed 20 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:43:03,932 - INFO - Completed 30 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:43:53,949 - INFO - Completed 40 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:44:43,965 - INFO - Completed 50 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:45:33,980 - INFO - Completed 60 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:46:23,996 - INFO - Completed 70 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:47:14,017 - INFO - Completed 80 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:48:04,036 - INFO - Completed 90 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:48:54,054 - INFO - Completed 100 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:49:44,072 - INFO - Completed 110 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:50:34,096 - INFO - Completed 120 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:51:24,123 - INFO - Completed 130 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:52:14,145 - INFO - Completed 140 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:53:04,159 - INFO - Completed 150 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:53:54,174 - INFO - Completed 160 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:54:44,191 - INFO - Completed 170 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:55:34,205 - INFO - Completed 180 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:56:24,218 - INFO - Completed 190 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:57:14,235 - INFO - Completed 200 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:58:04,248 - INFO - Completed 210 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:58:54,286 - INFO - Completed 220 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 20:59:44,304 - INFO - Completed 230 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:00:34,323 - INFO - Completed 240 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:01:24,338 - INFO - Completed 250 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:02:14,360 - INFO - Completed 260 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:03:04,375 - INFO - Completed 270 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:03:54,390 - INFO - Completed 280 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:04:44,412 - INFO - Completed 290 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:05:34,432 - INFO - Completed 300 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:06:24,454 - INFO - Completed 310 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:07:14,473 - INFO - Completed 320 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:08:04,489 - INFO - Completed 330 reading cycles for location /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+2025-10-18 21:08:33,533 - INFO - Received signal 15. Shutting down...
+[Before try block] USER(env): pi | USER(pwd): pi
+[Inside try block] USER(env): pi | USER(pwd): pi
+⏰ Internet detected. RTC time updated from internet (rtc_new.py --set-rtc)...
+✅ RTC time set successfully.
+================================================================================
+Dashboard started for location: KONDRAI
+  Simulation Mode: ON
+  Reading Interval: 5 seconds
+  Inter-device Delay: 0.1 seconds
+  MQTT Enabled: Yes
+  Output CSV: /home/pi/Desktop/offline-setup-12Sep/csv_data/KONDRAI.csv
+  Devices:
+    - Name: M1, Model: LG6400, Address: 1, Simulation: True
+================================================================================

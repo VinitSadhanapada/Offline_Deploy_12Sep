@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Simple Meter Dashboard (Admin)
+Comment=Launch Simple Meter Dashboard UI with admin privileges
+Exec=lxterminal -e bash -lc 'cd "$HOME/Desktop/offline-setup-12Sep" && ./one_click_system_py313.sh --start-ui; exec bash'
+Icon=utilities-terminal
+Terminal=true
+Categories=Utility;

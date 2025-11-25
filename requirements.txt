@@ -1,0 +1,18 @@
+# Requirements for Enhanced Dashboard System
+# Web-enabled dashboard with auto-setup and Flask integration
+# Version-locked for stability and offline deployment
+
+pymodbus==2.5.3
+pyserial==3.5
+paho-mqtt==2.1.0
+termcolor==3.1.0
+smbus2==0.4.2
+numpy==1.24.2
+
+Jinja2==3.1.6
+MarkupSafe==3.0.2
+python-dateutil==2.9.0.post0
+pytz==2025.2
+six==1.17.0
+tzdata==2025.2
+Werkzeug==3.1.3

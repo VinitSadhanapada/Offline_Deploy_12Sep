@@ -1,0 +1,18 @@
+{
+  "070F-C9B2": {
+    "pi_Adiyogi_2025-11-24.csv": {
+      "mtime": 1764043436,
+      "size": 1319269
+    },
+    "readings_all.csv": {
+      "mtime": 1764043436,
+      "size": 1319269
+    }
+  },
+  "TEST-test-usb": {
+    "readings_all.csv": {
+      "mtime": 1763985950,
+      "size": 438568
+    }
+  }
+}

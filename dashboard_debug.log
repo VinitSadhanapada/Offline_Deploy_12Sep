@@ -1,0 +1,75 @@
+Traceback (most recent call last):
+  File "/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py", line 130, in <module>
+    from offline_dashboard.utils import (
+ModuleNotFoundError: No module named 'offline_dashboard'
+Traceback (most recent call last):
+  File "/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py", line 130, in <module>
+    from offline_dashboard.utils import (
+ModuleNotFoundError: No module named 'offline_dashboard'
+Traceback (most recent call last):
+  File "/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py", line 130, in <module>
+    from offline_dashboard.utils import (
+ModuleNotFoundError: No module named 'offline_dashboard'
+Traceback (most recent call last):
+  File "/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py", line 130, in <module>
+    from offline_dashboard.utils import (
+ModuleNotFoundError: No module named 'offline_dashboard'
+Traceback (most recent call last):
+  File "/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py", line 130, in <module>
+    from offline_dashboard.utils import (
+ModuleNotFoundError: No module named 'offline_dashboard'
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
+/usr/bin/python3: can't open file '/home/pi/Desktop/offline-setup-12Sep/offline_rpi_dashboard_debug.py': [Errno 2] No such file or directory
