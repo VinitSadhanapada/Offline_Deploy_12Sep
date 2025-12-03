@@ -1,0 +1,50 @@
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+venv*/
+.env/
+.env*/
+.venv/
+.venv*/
+
+# Build artifacts
+*.spec
+build/
+dist/
+
+# Editor/OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+
+# Runtime logs and data (generated at run)
+logs/
+logs/*.log
+logs/*.json
+logs/*.txt
+
+# Generated CSV data
+data/csv/
+
+# Tool state
+*.log
+*.tmp
+*.pid
+
+# pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# MQTT or state snapshots (if any)
+*.state.json
+.cloud_sync_state.json
+
+# Jupyter notebooks (if later added)
+.ipynb_checkpoints/

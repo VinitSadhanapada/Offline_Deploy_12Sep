@@ -1,0 +1,145 @@
+# Simple Meter Dashboard – Technician UI Quick Start
+
+**Version:** Electrical IoT UI 1.0.0  
+**Prepared by:** Sudhir Rupapara  
+**Department:** Electrical
+
+---
+
+## Quick Start
+
+1. **Hardware Setup**
+	- Connect all MFMs using RS485 daisy-chain wiring.
+	- Plug RS485-to-USB converter into the Raspberry Pi.
+	- Power the Raspberry Pi via UPS.
+
+2. **Software Setup**
+	- Copy the `simple-meter-dashboard` folder to the Raspberry Pi Desktop.
+	- Double-click `simple_meter_ui.py` to launch the Technician UI.
+
+````markdown
+# Simple Meter Dashboard – Technician UI Quick Start
+
+**Version:** Electrical IoT UI 1.0.0  
+**Prepared by:** Sudhir Rupapara  
+**Department:** Electrical
+
+---
+
+## Quick Start
+
+1. **Hardware Setup**
+	- Connect all MFMs using RS485 daisy-chain wiring.
+	- Plug RS485-to-USB converter into the Raspberry Pi.
+	- Power the Raspberry Pi via UPS.
+
+2. **Software Setup**
+	- Copy the `simple-meter-dashboard` folder to the Raspberry Pi Desktop.
+	- Double-click `simple_meter_ui.py` to launch the Technician UI.
+
+### Drag‑and‑Run Deployment (Offline Bundle)
+
+If you received the full offline bundle `offline-setup-12Sep/` (or the `dist_minimal/` bundle):
+
+1. Copy the entire `offline-setup-12Sep` folder to your Desktop (keep the name unchanged).
+2. Drag `SimpleMeterUI_Admin.desktop` from inside the folder onto the Desktop (or copy it there).
+3. Double‑click the desktop icon.
+	 - First run: it will auto-create a Python 3.13 virtual environment (using system 3.13 or an optional offline runtime tarball) and install packages from `packages_folder/`.
+	 - Subsequent runs: it reuses the existing `venv/`.
+4. If prompted, mark the launcher as trusted/allow execution.
+
+What the launcher does internally:
+```
+cd "$HOME/Desktop/offline-setup-12Sep" \
+	&& ([[ -x venv/bin/python ]] || ./one_click_system_py313.sh) \
+	&& sudo ./venv/bin/python simple_meter_ui.py
+```
+
+Optional runtime fallback:
+- When system python3 < 3.13 and `python313_runtime.tar.gz` is present in this folder, the script extracts it into `/usr/local` and sets up `/usr/local/bin/python3.13` for venv creation.
+- If the system already has 3.13, the tarball is ignored.
+
+After first launch:
+- Use the UI to enable Auto-Start and services or run `sudo bash enable_auto_start.sh`.
+- CSVs under `data/csv/`, logs under `logs/`.
+
+Relocation tip:
+- Copy the whole folder again to Desktop on a new Pi (keep `offline-setup-12Sep` name) and reuse the desktop icon.
+
+3. **Configuration**
+	- Device configuration lives at `/home/pi/meter_config/device_config.json`.
+	- Click **Configure Devices** in the UI to open the editor pre-filled from that file.
+	- You can also edit the file directly (JSON). The UI supports:
+		- Top-level list of devices OR an object with a `devices`/`meters`/`items` array.
+		- Alternate key names like `meter_name`/`device_name`, `meter_address`/`device_id`, `meter_model`.
+	- Fields used by the dashboard are normalized to: `name`, `address`, `model`, `location`.
+	- Save in the UI to write back to the same file and shape.
+
+4. **Environment Setup**
+	- Click **Setup Environment** in the UI to install all required packages and create necessary folders.
+
+5. **Operation**
+	- Use **Manual Run** to test meter readings and log data to CSV.
+	- Use **Live Readings** for real-time monitoring.
+	- Click **Enable Auto-Start** to set up automatic dashboard startup after reboot.
+	- Manual Run reads device definitions from `/home/pi/meter_config/device_config.json`.
+
+6. **Data Management**
+	- CSV files are saved in `data/csv/`.
+	- CSV naming: files are named `<PI_NAME>_<LOCATION>_<YYYY-MM-DD>.csv`.
+		- `PI_NAME` defaults to the Pi hostname; set `PI_NAME` in `config.json` to override.
+		- `LOCATION` comes from the first device's `location` field in `device_config.json`.
+		- A compatibility symlink `readings_all.csv` points to the current day's file.
+	- USB auto-copy (optional but recommended for field collection):
+		- Controlled by `config.json` → `usb_copy.enabled` (default: true).
+		- When a USB drive is plugged, files from `data/csv/` are copied to `<USB>/COPIED_DATA/data/csv`.
+		- The service is installed/enabled by running `sudo bash enable_auto_start.sh`.
+		- Logs: `logs/usb_copy.log` (state file: `logs/.usb_copy_state.json`).
+			- Behavior: copies immediately on USB insertion, then throttles repeats to every `usb_copy.cooldown_seconds` (default 600s) while the same USB stays plugged in.
+			- Tip: You can test once without USB by creating a folder and running:
+ 	  `python3 usb_csv_auto_copy.py --once --test-mount /path/to/folder`.
+		- Safety: after copy completes, we flush writes and optionally eject the USB.
+			- Configure via `usb_copy`: `sync_after_copy` (default true), `eject_after_copy` (default true in this bundle), and `write_done_marker` (default true) which creates `<USB>/COPIED_DATA/COPY_DONE.txt`.
+			- Duplicate handling: `always_copy_on_insert: true` and non-overwriting copies will create enumerated files (e.g., `file.csv`, `file_1.csv`, `file_2.csv`).
+
+7. **MQTT Publishing (optional)**
+	- To publish readings to MQTT (for use with `simple-meter-dashboard/iot_scripts/mqtt_to_db_ingest.py`):
+		- Edit `config.json` and set `ENABLE_MQTT` to `true`.
+		- Configure the `MQTT` section (broker, port, topic, username/password, TLS). The runtime reads the broker and other settings from the `config.json` file located in this same folder.
+		- Default topic is `meter/readings` which matches the ingest script.
+		- Payload includes device metadata (pi_name, pi_ip, meter_name, time, device_id, model, location) and all parameters.
+		- Tip: `config.json` must be valid JSON (remove `//` comments). Put quotes around strings (e.g., usernames and passwords).
+
+8. **Cloud Sync (optional)**
+	- Pushes `data/csv/` to a remote when Wi‑Fi is available.
+	- Configure `config.json` → `cloud_sync`: choose a method:
+		- `rclone`: requires `rclone` installed and a remote configured (`rclone config`). Set `rclone_remote` and `dest_path`.
+		- `rsync`: set `rsync_target` (e.g., `user@host:/path`) and optionally `ssh_key` and `ssh_port`.
+		- `scp`: simple fallback; uses the same `rsync_target`.
+	- Turn on with `cloud_sync.enabled: true`, then run `sudo bash enable_auto_start.sh` to (re)create/enable the timer.
+	- Interval: prefer `cloud_sync.interval_seconds` (e.g., 10 for fast checks). If not set, falls back to `cloud_sync.interval_minutes` (default: 10).
+	- Logs: `logs/cloud_sync.log`.
+	- See `docs/cloud_sync_google_drive.md` for a step‑by‑step Google Drive setup (online and offline‑friendly).
+
+9. **Troubleshooting**
+	- Use **Force Stop Logging** to terminate stuck processes.
+	- Use **System Status** to check permissions and system health.
+	- For common issues, refer to the SOP.
+
+---
+
+**For detailed instructions, wiring diagrams, and troubleshooting, refer to the full SOP document.**
+
+## Notes on code layout and cleanup
+
+- Core modules are grouped under `legacy_core/` (macros, meter_device, meter_manager, mqtt_client, and meter drivers).
+- The previous `src/offline_dashboard/` package and duplicate root modules were removed to avoid confusion.
+- Entry points remain the same:
+	- `simple_meter_ui.py` for the Technician UI
+	- `simple_rpi_dashboard.py` for CLI setup/run/service
+- The old offline debug scripts and USB auto-copy service have been removed.
+ - USB auto-copy and Cloud Sync are provided as standalone services:
+	- `usb_csv_auto_copy.service` watches for USB drives and copies CSVs.
+	- `cloud_sync.timer` triggers `cloud_sync.service` to push data when online.
+
+````
