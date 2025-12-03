@@ -39,6 +39,8 @@ LOGS_DIR = ROOT / "logs"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOGS_DIR / "usb_copy.log"
 STATE_FILE = LOGS_DIR / ".usb_copy_state.json"
+DEFAULT_COPY_MODE = "merge"  # overwrite | skip-identical | merge
+LOCK_FILE = LOGS_DIR / ".usb_copy.lock"
 
 
 def log(msg: str):
@@ -50,6 +52,32 @@ def log(msg: str):
     except Exception:
         pass
     print(line, end="")
+
+
+def acquire_singleton_lock() -> bool:
+    """Ensure only one daemon instance runs by using a lock file with PID.
+    Returns True if this process acquired the lock, False if another active PID holds it.
+    """
+    try:
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        if LOCK_FILE.exists():
+            try:
+                pid = int(LOCK_FILE.read_text().strip() or "0")
+            except Exception:
+                pid = 0
+            if pid > 0:
+                try:
+                    os.kill(pid, 0)
+                    log(f"[WARN] Another usb copy daemon running (pid={pid}); exiting")
+                    return False
+                except Exception:
+                    # Stale lock, proceed to take over
+                    pass
+        LOCK_FILE.write_text(str(os.getpid()))
+        return True
+    except Exception:
+        # If lock management fails, allow start rather than block usage
+        return True
 
 
 def load_jsonc(path: Path) -> Dict:
@@ -187,21 +215,196 @@ def atomic_copy(src: Path, dst: Path):
     tmp.replace(dst)
 
 
-def unique_destination_path(dst: Path) -> Path:
-    """Return a non-overwriting destination path by appending _N before extension.
-    Example: file.csv -> file_1.csv, file_2.csv, ...
+def file_hash(p: Path, chunk_size: int = 1024 * 1024) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with p.open("rb") as f:
+        while True:
+            b = f.read(chunk_size)
+            if not b:
+                break
+            h.update(b)
+    return h.hexdigest()
+
+
+def files_identical(a: Path, b: Path) -> bool:
+    try:
+        sa, sb = a.stat(), b.stat()
+        if sa.st_size != sb.st_size:
+            return False
+        # Fast path: if mtimes and sizes match, treat as identical
+        if int(sa.st_mtime) == int(sb.st_mtime):
+            return True
+        # Thorough check: hash both
+        return file_hash(a) == file_hash(b)
+    except Exception:
+        return False
+
+
+def atomic_write_bytes(dst: Path, data: bytes):
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_suffix(dst.suffix + ".part")
+    with tmp.open("wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    tmp.replace(dst)
+
+
+def merge_csv_files(src: Path, dst: Path) -> bool:
+    """Merge CSV rows from src into dst, de-duplicating rows.
+    Returns True on success, False on failure. Keeps header from dst if exists,
+    else from src. If headers mismatch, falls back to overwrite by returning False.
     """
-    if not dst.exists():
-        return dst
-    stem = dst.stem
-    suffix = dst.suffix
-    parent = dst.parent
-    n = 1
-    while True:
-        candidate = parent / f"{stem}_{n}{suffix}"
-        if not candidate.exists():
-            return candidate
-        n += 1
+    import csv
+    try:
+        # Read headers
+        src_rows: list[list[str]] = []
+        dst_rows: list[list[str]] = []
+        src_header: list[str] = []
+        dst_header: list[str] = []
+
+        if dst.exists():
+            with dst.open("r", newline="", encoding="utf-8") as f:
+                r = csv.reader(f)
+                for i, row in enumerate(r):
+                    if i == 0:
+                        dst_header = row
+                    else:
+                        dst_rows.append(row)
+        with src.open("r", newline="", encoding="utf-8") as f:
+            r = csv.reader(f)
+            for i, row in enumerate(r):
+                if i == 0:
+                    src_header = row
+                else:
+                    src_rows.append(row)
+
+        header: list[str]
+        if dst_header and src_header and dst_header != src_header:
+            # Header mismatch; avoid unsafe merge
+            return False
+        header = dst_header or src_header
+        # Build set of tuples for fast dedupe
+        seen = set()
+        merged: list[list[str]] = []
+        for row in dst_rows:
+            t = tuple(row)
+            if t not in seen:
+                seen.add(t)
+                merged.append(row)
+        for row in src_rows:
+            t = tuple(row)
+            if t not in seen:
+                seen.add(t)
+                merged.append(row)
+
+        # Optional: sort by Time column if present
+        time_idx = None
+        try:
+            if header:
+                time_idx = header.index("Time")
+        except ValueError:
+            time_idx = None
+        if time_idx is not None:
+            try:
+                from datetime import datetime
+                merged.sort(key=lambda r: datetime.fromisoformat(r[time_idx]) if r[time_idx] else "")
+            except Exception:
+                # If parse fails, leave original order
+                pass
+
+        # Write back atomically
+        import io
+        out = io.StringIO()
+        w = csv.writer(out, lineterminator="\n")
+        if header:
+            w.writerow(header)
+        for row in merged:
+            w.writerow(row)
+        atomic_write_bytes(dst, out.getvalue().encode("utf-8"))
+        return True
+    except Exception:
+        return False
+
+
+def remove_duplicate_variants(dest_dir: Path, base_name: str):
+    """Remove only underscore-number variants (e.g., name_1.csv, name_2.csv).
+    Do not delete (1), Copy, or other variant styles.
+    """
+    stem, suffix = os.path.splitext(base_name)
+    try:
+        # Enumerate all files with the same suffix in dest_dir and match by regex
+        import re
+        canonical = dest_dir / base_name
+        # Only match underscore-number suffix variants
+        underscore_pat = re.compile(rf"^{re.escape(stem)}_\d+{re.escape(suffix)}$", flags=re.IGNORECASE)
+        def is_variant(name: str) -> bool:
+            return name != base_name and bool(underscore_pat.match(name))
+
+        for p in dest_dir.glob(f"*{suffix}"):
+            try:
+                name = p.name
+                if is_variant(name):
+                    p.unlink()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+def normalize_and_cleanup_variants(dest_dir: Path, base_name: str):
+    """Normalize only underscore-number variants to canonical name when needed.
+    Do not delete remaining variants; preserve originals.
+    """
+    stem, suffix = os.path.splitext(base_name)
+    import re
+    canonical = dest_dir / base_name
+    # Only consider underscore-number variants
+    pat = re.compile(rf"^{re.escape(stem)}_\d+{re.escape(suffix)}$", flags=re.IGNORECASE)
+    variants = []
+    for p in dest_dir.glob(f"*{suffix}"):
+        name = p.name
+        if name == base_name:
+            continue
+        if pat.match(name):
+            variants.append(p)
+    if not variants:
+        return
+    # Choose the newest variant as source for canonical
+    try:
+        newest = max(variants, key=lambda x: x.stat().st_mtime)
+    except Exception:
+        newest = variants[0]
+    try:
+        if not canonical.exists():
+            newest.rename(canonical)
+    except Exception:
+        # If rename fails, leave as-is
+        pass
+    # Do not remove other variants aggressively; preserve existing files
+
+def post_scan_variant_check(dest_dir: Path):
+    """After copy, normalize only underscore-number variants; no aggressive deletions."""
+    try:
+        if not dest_dir.exists():
+            return
+        import re
+        def canonical_name(name: str) -> str:
+            stem, suffix = os.path.splitext(name)
+            # Only strip underscore-number suffix like _1, _2
+            s = re.sub(r"_\d+$", "", stem)
+            return f"{s}{suffix}"
+
+        groups = {}
+        for p in dest_dir.glob("*.csv"):
+            cn = canonical_name(p.name)
+            groups.setdefault(cn, []).append(p.name)
+
+        for cn, names in groups.items():
+            # Only run conservative normalization (no deletions of valid files)
+            normalize_and_cleanup_variants(dest_dir, cn)
+    except Exception:
+        pass
 
 
 def sync_filesystem(mount_point: Path):
@@ -370,9 +573,18 @@ def scan_and_copy(mount: UsbMount, cfg: Dict, dry_run: bool = False) -> (int, Li
     dest_root_name = usb_cfg.get("dest_root_name", "OfflineDashboard")
     subfolder = usb_cfg.get("subfolder", "data/csv")
     min_free_mb = int(usb_cfg.get("min_free_mb", 50))
+    copy_mode = str(usb_cfg.get("copy_mode", DEFAULT_COPY_MODE)).strip().lower()
+    if copy_mode not in {"overwrite", "skip-identical", "merge"}:
+        copy_mode = DEFAULT_COPY_MODE
     always_copy = bool(usb_cfg.get("always_copy_on_insert", False))
+    dedupe_variants = True  # hard-enable variant cleanup without config change
 
-    dest_root = mount.mount_point / dest_root_name
+    # Prefer legacy COPIED_DATA root if present, else configured root
+    preferred_legacy_root = mount.mount_point / "COPIED_DATA"
+    if preferred_legacy_root.exists():
+        dest_root = preferred_legacy_root
+    else:
+        dest_root = mount.mount_point / dest_root_name
     dest_dir = dest_root / subfolder
 
     state = load_state()
@@ -382,11 +594,27 @@ def scan_and_copy(mount: UsbMount, cfg: Dict, dry_run: bool = False) -> (int, Li
         log(f"[WARN] {mount.mount_point} low on space (<{min_free_mb} MB); skipping")
         return 0
 
+    # Unconditional pre-pass: remove duplicate variants for all known source files
+    # Sweep both configured dest_dir and legacy COPIED_DATA/data/csv to ensure cleanup.
+    try:
+        legacy_dir = mount.mount_point / "COPIED_DATA" / "data" / "csv"
+        for target_dir in (dest_dir, legacy_dir):
+            for src in sorted(DATA_CSV.glob("*.csv")):
+                if src.name == "readings_all.csv":
+                    continue
+                remove_duplicate_variants(target_dir, src.name)
+                normalize_and_cleanup_variants(target_dir, src.name)
+    except Exception:
+        pass
+
     copied = 0
     planned = 0  # for dry-run
     failed: List[str] = []
     for src in sorted(DATA_CSV.glob("*.csv")):
         try:
+            # Skip consolidated file not needed on USB
+            if src.name == "readings_all.csv":
+                continue
             rel = src.relative_to(DATA_CSV)
         except Exception:
             rel = Path(src.name)
@@ -404,21 +632,59 @@ def scan_and_copy(mount: UsbMount, cfg: Dict, dry_run: bool = False) -> (int, Li
                     need = True
 
         dst = dest_dir / rel
-        # When copying, never overwrite; get a unique path if destination exists
-        final_dst = dst if not dst.exists() else unique_destination_path(dst)
+        # If destination file is missing (e.g., was manually deleted), force copy
+        if not dst.exists():
+            need = True
+        if dedupe_variants:
+            # Ensure we don't keep numbered duplicate variants on destination
+            remove_duplicate_variants(dest_dir, dst.name)
 
         if need:
             if dry_run:
-                log(f"[DRY] Would copy {src} -> {final_dst}")
+                action = "overwrite" if copy_mode == "overwrite" else ("merge" if copy_mode == "merge" else "skip-identical/overwrite")
+                log(f"[DRY] Would process {src} -> {dst} (mode={copy_mode}, action={action})")
                 planned += 1
             else:
                 try:
-                    atomic_copy(src, final_dst)
-                    dev_state[key] = {"mtime": int(stat.st_mtime), "size": int(stat.st_size)}
-                    copied += 1
-                    log(f"[OK] Copied {src.name} -> {final_dst}")
+                    if dst.exists():
+                        if copy_mode == "skip-identical":
+                            if files_identical(src, dst):
+                                # Up-to-date by content; just update state
+                                dev_state[key] = {"mtime": int(stat.st_mtime), "size": int(stat.st_size)}
+                                log(f"[SKIP] Identical {src.name}; nothing to do")
+                            else:
+                                atomic_copy(src, dst)
+                                dev_state[key] = {"mtime": int(stat.st_mtime), "size": int(stat.st_size)}
+                                copied += 1
+                                log(f"[OK] Overwrote {dst.name} (content changed)")
+                        elif copy_mode == "merge":
+                            if files_identical(src, dst):
+                                dev_state[key] = {"mtime": int(stat.st_mtime), "size": int(stat.st_size)}
+                                log(f"[SKIP] Identical {src.name}; nothing to merge")
+                            else:
+                                if merge_csv_files(src, dst):
+                                    dev_state[key] = {"mtime": int(stat.st_mtime), "size": int(stat.st_size)}
+                                    copied += 1
+                                    log(f"[OK] Merged into {dst.name}")
+                                else:
+                                    # Fallback to overwrite on merge failure
+                                    atomic_copy(src, dst)
+                                    dev_state[key] = {"mtime": int(stat.st_mtime), "size": int(stat.st_size)}
+                                    copied += 1
+                                    log(f"[OK] Overwrote {dst.name} (merge unsupported)")
+                        else:  # overwrite
+                            atomic_copy(src, dst)
+                            dev_state[key] = {"mtime": int(stat.st_mtime), "size": int(stat.st_size)}
+                            copied += 1
+                            log(f"[OK] Overwrote {dst.name}")
+                    else:
+                        # Fresh copy
+                        atomic_copy(src, dst)
+                        dev_state[key] = {"mtime": int(stat.st_mtime), "size": int(stat.st_size)}
+                        copied += 1
+                        log(f"[OK] Copied {src.name} -> {dst}")
                 except Exception as e:
-                    log(f"[ERROR] Failed to copy {src} -> {final_dst}: {e}")
+                    log(f"[ERROR] Failed to process {src} -> {dst}: {e}")
                     failed.append(str(src.name))
         else:
             # log(f"[SKIP] Up-to-date {src.name}")
@@ -437,7 +703,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--interval", type=int, default=None, help="Polling interval seconds")
     ap.add_argument("--dry-run", action="store_true", help="Log actions without writing")
     ap.add_argument("--test-mount", type=str, default=None, help="Treat this path as a USB mount for testing")
+    ap.add_argument("--check-only", action="store_true", help="Only run duplicate cleanup on destination without copying")
     args = ap.parse_args(argv)
+
+    # Singleton guard when running as daemon
+    if args.daemon:
+        if not acquire_singleton_lock():
+            return 0
 
     cfg = load_config()
     usb_cfg = cfg.get("usb_copy", {})
@@ -491,8 +763,27 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if mount_settle_sec > 0:
                     time.sleep(mount_settle_sec)
                 start_ts = time.time()
+                if args.check_only:
+                    # Just run cleanup on destination
+                    dest_root_name = usb_cfg.get("dest_root_name", "OfflineDashboard")
+                    subfolder = usb_cfg.get("subfolder", "data/csv")
+                    dest_dir = (m.mount_point / dest_root_name / subfolder)
+                    post_scan_variant_check(dest_dir)
+                    log(f"[INFO] Check-only cleanup done on {dest_dir}")
+                    continue
                 n, failed = scan_and_copy(m, cfg, dry_run=args.dry_run)
                 total += n
+                # Always run a post-scan duplicate check on destination
+                try:
+                    cfg_usb = cfg.get("usb_copy", {})
+                    dest_root_name = cfg_usb.get("dest_root_name", "OfflineDashboard")
+                    subfolder = cfg_usb.get("subfolder", "data/csv")
+                    dest_dir = (m.mount_point / dest_root_name / subfolder)
+                    # Run cleanup on both configured path and legacy COPIED_DATA
+                    post_scan_variant_check(dest_dir)
+                    post_scan_variant_check(mount.mount_point / "COPIED_DATA" / "data" / "csv")
+                except Exception:
+                    pass
                 if n and not args.dry_run:
                     log(f"[INFO] {n} file(s) copied to {m.mount_point}")
                     # Enforce minimum read/write dwell time
@@ -556,6 +847,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Track transition from no USB -> USB and last copy attempt per mount
     prev_had_mounts = False
     last_copied: Dict[str, float] = {}
+    last_insert_ts: float = 0.0
 
     while not stop:
         try:
@@ -574,6 +866,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                     allow = insertion_event or ((now - last) >= cooldown_sec)
                     if allow:
                         if insertion_event:
+                            # Debounce rapid duplicate insert triggers (hardcoded safe value)
+                            debounce = 2.0
+                            if (now - last_insert_ts) < debounce:
+                                # Skip duplicate trigger; will run after cooldown if needed
+                                continue
+                            last_insert_ts = now
                             log(f"[INFO] USB inserted -> triggering copy for {m.mount_point}")
                         try:
                             # Allow the automounter a brief moment to settle
@@ -582,6 +880,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                             start_ts = time.time()
                             n, failed = scan_and_copy(m, cfg, dry_run=args.dry_run)
                             last_copied[m.id] = now
+                            # Run a post-scan duplicate check even if n==0
+                            try:
+                                cfg_usb = cfg.get("usb_copy", {})
+                                dest_root_name = cfg_usb.get("dest_root_name", "OfflineDashboard")
+                                subfolder = cfg_usb.get("subfolder", "data/csv")
+                                dest_dir = (m.mount_point / dest_root_name / subfolder)
+                                post_scan_variant_check(dest_dir)
+                                post_scan_variant_check(mount.mount_point / "COPIED_DATA" / "data" / "csv")
+                            except Exception:
+                                pass
                             if n and not args.dry_run:
                                 log(f"[INFO] {n} file(s) copied to {m.mount_point}")
                                 # Enforce minimum read/write dwell time

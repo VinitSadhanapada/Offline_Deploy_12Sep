@@ -524,7 +524,18 @@ class SimpleDashboard:
         except Exception:
             pass
 
-        # 2) Install packages into the created venv (offline aware)
+        # 2a) Ensure core templating wheels (MarkupSafe, Jinja2) are installed from local wheels first
+        try:
+            if offline_dir:
+                self.run_command([
+                    str(python_exe), "-m", "pip", "install",
+                    "--no-index", "--find-links", offline_dir,
+                    "MarkupSafe", "jinja2",
+                ], check=False)
+        except Exception:
+            pass
+
+        # 2b) Install the remaining packages into the created venv (offline aware)
         if not install_packages_in_venv(python_exe, required_packages, offline_dir):
             print("❌ Environment setup failed")
             return False
