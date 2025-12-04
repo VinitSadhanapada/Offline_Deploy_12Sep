@@ -116,6 +116,14 @@ def load_config() -> Dict:
     except Exception as e:
         log(f"[WARN] Failed to parse config.json: {e}")
         return {}
+    # Ensure usb_copy block has safe defaults so service runs out-of-the-box
+    usb = cfg.get('usb_copy') or {}
+    if 'enabled' not in usb:
+        usb['enabled'] = True
+    if 'eject_after_copy' not in usb:
+        usb['eject_after_copy'] = True
+    cfg['usb_copy'] = usb
+    return cfg
 
 
 @dataclass
