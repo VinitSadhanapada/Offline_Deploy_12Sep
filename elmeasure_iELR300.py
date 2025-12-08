@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 try:
     from pymodbus.constants import Endian
 except Exception:

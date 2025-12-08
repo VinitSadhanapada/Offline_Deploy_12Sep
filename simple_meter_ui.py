@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 import tkinter as tk
 from tkinter import scrolledtext, messagebox, filedialog
@@ -110,6 +111,27 @@ class SimpleMeterUI(tk.Tk):
                         self.output.see(tk.END)
                     rc = proc.wait()
 
+                    # After enabling auto-start, set RTC from current system time (one-off)
+                    try:
+                        set_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "set_rtc_from_system.py")
+                        if os.path.exists(set_script):
+                            # Run as root to ensure I2C access and write permission
+                            proc2 = subprocess.Popen(["sudo", "python3", set_script], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+                            self.output.insert(tk.END, f"\n[RTC Setup] Running: sudo python3 {set_script}\n")
+                            self.output.see(tk.END)
+                            for line in proc2.stdout:
+                                self.output.insert(tk.END, line)
+                                self.output.see(tk.END)
+                            rc2 = proc2.wait()
+                            if rc2 == 0:
+                                self.output.insert(tk.END, "\n[RTC Setup] RTC set from system time.\n")
+                            else:
+                                self.output.insert(tk.END, f"\n[RTC Setup] Failed with rc={rc2}\n")
+                        else:
+                            self.output.insert(tk.END, "\n[RTC Setup] No set_rtc_from_system.py found; skipping RTC set.\n")
+                    except Exception as e:
+                        self.output.insert(tk.END, f"\n[RTC Setup] Exception: {e}\n")
+
                     def finalize():
                         try:
                             if rc == 0:
@@ -161,6 +183,48 @@ class SimpleMeterUI(tk.Tk):
             pass
         # RTC check on startup
         self.after(100, self.check_rtc_status)
+        ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+        # Ensure required offline packages are installed from packages_folder
+        def _ensure_offline_packages():
+            try:
+                import jinja2  # noqa: F401
+                return
+            except Exception:
+                pass
+            # Install required wheels strictly from local packages_folder (offline)
+            pkgs = [
+                {
+                    "module": "MarkupSafe",
+                    "glob": os.path.join(ROOT_DIR, "packages_folder", "MarkupSafe-*.whl"),
+                },
+                {
+                    "module": "jinja2",
+                    "glob": os.path.join(ROOT_DIR, "packages_folder", "jinja2-*.whl"),
+                },
+            ]
+            import glob
+            for p in pkgs:
+                try:
+                    wheel_candidates = sorted(glob.glob(p["glob"]))
+                    if not wheel_candidates:
+                        continue
+                    wheel = wheel_candidates[-1]
+                    # Use current interpreter (venv if active), install offline
+                    subprocess.run([
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        "--no-index",
+                        "--find-links",
+                        os.path.dirname(wheel),
+                        wheel,
+                    ], check=False)
+                except Exception:
+                    continue
+
+        _ensure_offline_packages()
 
     def check_rtc_status(self):
         import subprocess

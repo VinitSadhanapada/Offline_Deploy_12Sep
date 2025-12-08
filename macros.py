@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Configuration Constants and Device Definitions.
 

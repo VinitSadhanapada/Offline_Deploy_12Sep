@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """No-op sitecustomize.
 
 This file intentionally left minimal. The previous version added a removed

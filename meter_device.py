@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import datetime
 import random
 import elmeasure_LG6400 as LG6400
