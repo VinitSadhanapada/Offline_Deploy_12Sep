@@ -174,11 +174,11 @@ class SimpleMeterUI(tk.Tk):
         self.proc = None
         self.output_window = None
         self.reading_interval = self._get_reading_interval()
-        self.cloud_enabled_var = tk.BooleanVar(value=self._get_cloud_enabled_safe())
+        self.ap_enabled_var = tk.BooleanVar(value=self._get_ap_enabled_safe())
         self.create_widgets()
-        # Refresh cloud service state display on startup
+        # Refresh AP service state display on startup
         try:
-            self._update_cloud_service_status()
+            self._update_ap_service_status()
         except Exception:
             pass
         # RTC check on startup
@@ -290,42 +290,150 @@ class SimpleMeterUI(tk.Tk):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to write config.json: {e}")
             return False
-
-    def _get_cloud_enabled_safe(self) -> bool:
+    def _get_ap_enabled_safe(self) -> bool:
         try:
-            cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+            # Store AP-on-boot preference locally inside usb_download_mvp to avoid touching global config
+            cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "local_config.json")
+            if not os.path.exists(cfg_path):
+                return False
             cfg = self._load_jsonc(cfg_path)
-            cloud = cfg.get("cloud_sync", {})
-            return bool(cloud.get("enabled", False))
+            ap = cfg.get("usb_ap", {})
+            return bool(ap.get("enabled", False))
         except Exception:
             return False
 
-    def _apply_cloud_systemd(self, enabled: bool):
-        # Enable/disable associated services so behavior persists across reboots
+    def _apply_ap_systemd(self, enabled: bool):
         try:
             if enabled:
-                cmds = [
-                    ["sudo", "systemctl", "enable", "--now", "cloud_sync.timer"],
-                    ["sudo", "systemctl", "enable", "--now", "netwatch-trigger.service"],
-                ]
+                # Prefer running the packaged enable script so all network pieces are configured
+                enable_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "enable_ap_mode.sh")
+                if os.path.exists(enable_script) and os.access(enable_script, os.X_OK):
+                    cmd = ["sudo", "bash", enable_script]
+                    self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
+                    self.output.see(tk.END)
+                    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                else:
+                    # Fallback to enabling the systemd unit directly
+                    cmd = ["sudo", "systemctl", "enable", "--now", "usb_ap.service"]
+                    self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
+                    self.output.see(tk.END)
+                    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             else:
-                cmds = [
-                    ["sudo", "systemctl", "disable", "--now", "cloud_sync.timer"],
-                    ["sudo", "systemctl", "disable", "--now", "netwatch-trigger.service"],
-                ]
-            for cmd in cmds:
-                self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
+                # First stop AP services and restore client networking via disable_ap_mode.sh
+                disable_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "disable_ap_mode.sh")
+                if os.path.exists(disable_script):
+                    # Run the packaged disable script via bash even if it isn't marked executable.
+                    # Some systems need the script run more than once to fully revert AP changes,
+                    # so run it twice with a short pause between runs.
+                    cmd = ["sudo", "bash", disable_script]
+                    for run_idx in (1, 2):
+                        self.output.insert(tk.END, f"\n$ {' '.join(cmd)} (attempt {run_idx})\n")
+                        self.output.see(tk.END)
+                        try:
+                            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                        except Exception as e:
+                            self.output.insert(tk.END, f"\n[WARN] Running disable script attempt {run_idx} failed: {e}\n")
+                            self.output.see(tk.END)
+                        # short pause between attempts to let network state settle
+                        try:
+                            import time
+                            time.sleep(1)
+                        except Exception:
+                            pass
+                    # After running the disable script, attempt to restore client networking
+                    try:
+                        # Start wpa_supplicant (if present) and restart dhcpcd to obtain IP
+                        for svc in ("wpa_supplicant", "dhcpcd", "NetworkManager", "systemd-networkd"):
+                            try:
+                                subprocess.run(["sudo", "systemctl", "restart", svc], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                                self.output.insert(tk.END, f"\n$ sudo systemctl restart {svc}\n")
+                                self.output.see(tk.END)
+                            except Exception:
+                                # ignore individual failures; continue trying others
+                                pass
+                        # Bring wlan0 up and ask wpa_supplicant to reconfigure if available
+                        try:
+                            subprocess.run(["sudo", "ip", "link", "set", "wlan0", "up"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                            self.output.insert(tk.END, "\n$ sudo ip link set wlan0 up\n")
+                            self.output.see(tk.END)
+                        except Exception:
+                            pass
+                        # Try reconfiguring wpa_supplicant via wpa_cli if present
+                        try:
+                            subprocess.run(["sudo", "wpa_cli", "-i", "wlan0", "reconfigure"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                            self.output.insert(tk.END, "\n$ sudo wpa_cli -i wlan0 reconfigure\n")
+                            self.output.see(tk.END)
+                        except Exception:
+                            pass
+                        # Finally attempt to renew DHCP lease
+                        try:
+                            subprocess.run(["sudo", "dhclient", "-v", "wlan0"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                            self.output.insert(tk.END, "\n$ sudo dhclient -v wlan0\n")
+                            self.output.see(tk.END)
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+                else:
+                    # Fallback: stop hostapd/dnsmasq directly
+                    for cmd in (["sudo", "systemctl", "stop", "hostapd"], ["sudo", "systemctl", "stop", "dnsmasq"]):
+                        self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
+                        self.output.see(tk.END)
+                        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                # Then disable the usb_ap.service so it won't run at boot
+                cmd_disable = ["sudo", "systemctl", "disable", "--now", "usb_ap.service"]
+                self.output.insert(tk.END, f"\n$ {' '.join(cmd_disable)}\n")
                 self.output.see(tk.END)
-                subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                subprocess.run(cmd_disable, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         except Exception as e:
-            self.output.insert(tk.END, f"\n[WARN] Failed to update services: {e}\n")
+            self.output.insert(tk.END, f"\n[WARN] Failed to update AP service: {e}\n")
             self.output.see(tk.END)
         finally:
-            # Refresh the UI display of service state
             try:
-                self._update_cloud_service_status()
+                self._update_ap_service_status()
             except Exception:
                 pass
+
+    def _update_ap_service_status(self):
+        try:
+            enabled = self._is_systemd_enabled('usb_ap.service')
+            if enabled:
+                txt = 'AP Service: enabled'
+                fg = 'green'
+            else:
+                txt = 'AP Service: disabled'
+                fg = 'red'
+            if hasattr(self, 'ap_service_status_label'):
+                self.ap_service_status_label.config(text=txt, fg=fg)
+        except Exception:
+            if hasattr(self, 'ap_service_status_label'):
+                self.ap_service_status_label.config(text='AP Service: unknown', fg='orange')
+
+    def on_toggle_ap(self):
+        enabled = bool(self.ap_enabled_var.get())
+        # Persist the AP preference locally inside usb_download_mvp/local_config.json
+        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "local_config.json")
+        try:
+            os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
+        except Exception:
+            pass
+        cfg = {}
+        try:
+            if os.path.exists(cfg_path):
+                cfg = self._load_jsonc(cfg_path)
+        except Exception:
+            cfg = {}
+        if "usb_ap" not in cfg:
+            cfg["usb_ap"] = {}
+        cfg["usb_ap"]["enabled"] = enabled
+        try:
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=4)
+            self.status_label.config(text=f"AP at boot {'ENABLED' if enabled else 'DISABLED'} (persisted locally)", fg=("green" if enabled else "orange"))
+            # Apply systemd state
+            self._apply_ap_systemd(enabled)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to write local config: {e}")
 
     def _is_systemd_enabled(self, unit: str) -> bool:
         try:
@@ -334,45 +442,14 @@ class SimpleMeterUI(tk.Tk):
         except Exception:
             return False
 
-    def _update_cloud_service_status(self):
-        # Update the small label next to the cloud toggle to show whether services are enabled
-        try:
-            timer_enabled = self._is_systemd_enabled('cloud_sync.timer')
-            netwatch_enabled = self._is_systemd_enabled('netwatch-trigger.service')
-            if timer_enabled and netwatch_enabled:
-                txt = 'Services: enabled'
-                fg = 'green'
-            elif timer_enabled or netwatch_enabled:
-                txt = 'Services: partially enabled'
-                fg = 'orange'
-            else:
-                txt = 'Services: disabled'
-                fg = 'red'
-            if hasattr(self, 'cloud_service_status_label'):
-                self.cloud_service_status_label.config(text=txt, fg=fg)
-        except Exception as e:
-            if hasattr(self, 'cloud_service_status_label'):
-                self.cloud_service_status_label.config(text='Services: unknown', fg='orange')
-
-    def on_toggle_cloud_sync(self):
-        enabled = bool(self.cloud_enabled_var.get())
-        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-        cfg = self._load_jsonc(cfg_path)
-        if "cloud_sync" not in cfg:
-            cfg["cloud_sync"] = {}
-        cfg["cloud_sync"]["enabled"] = enabled
-        if self._save_config_json(cfg):
-            self.status_label.config(text=f"Cloud Backup {'ENABLED' if enabled else 'DISABLED'} (persisted)", fg=("green" if enabled else "orange"))
-            # Apply systemd state so checks only run when active and persist across reboots
-            self._apply_cloud_systemd(enabled)
 
     def create_widgets(self):
         tk.Label(self, text="Simple Meter Dashboard - Technician UI", font=("Arial", 16, "bold")).pack(pady=10)
         self.btn_frame1 = tk.Frame(self)
         self.btn_frame1.pack(pady=5)
-        # Cloud backup toggle row
-        self.cloud_frame = tk.Frame(self)
-        self.cloud_frame.pack(pady=2)
+        # AP / service toggle row
+        self.ap_frame = tk.Frame(self)
+        self.ap_frame.pack(pady=2)
         self.btn_frame2 = tk.Frame(self)
         self.btn_frame2.pack(pady=5)
         self.btn_frame3 = tk.Frame(self)
@@ -385,15 +462,14 @@ class SimpleMeterUI(tk.Tk):
         self.auto_start_btn = tk.Button(self.btn_frame1, text="Enable Auto-Start", width=18, command=self.auto_start)
         self.auto_start_btn.pack(side=tk.LEFT, padx=5)
 
-        # Cloud backup toggle
-        tk.Label(self.cloud_frame, text="Online Backup:").pack(side=tk.LEFT, padx=(5,2))
-        self.cloud_toggle = tk.Checkbutton(self.cloud_frame, text="Enable", variable=self.cloud_enabled_var, command=self.on_toggle_cloud_sync)
-        self.cloud_toggle.pack(side=tk.LEFT, padx=5)
-        # Small status label showing whether cloud-related services are enabled in systemd
-        self.cloud_service_status_label = tk.Label(self.cloud_frame, text="Services: unknown", fg="orange")
-        self.cloud_service_status_label.pack(side=tk.LEFT, padx=(8,4))
-        # Refresh button to re-query systemd state
-        tk.Button(self.cloud_frame, text="Refresh", width=8, command=self._update_cloud_service_status).pack(side=tk.LEFT, padx=4)
+        # AP at boot toggle
+        tk.Label(self.ap_frame, text="AP at boot:").pack(side=tk.LEFT, padx=(5,2))
+        self.ap_toggle = tk.Checkbutton(self.ap_frame, text="Enable", variable=self.ap_enabled_var, command=self.on_toggle_ap)
+        self.ap_toggle.pack(side=tk.LEFT, padx=5)
+        self.ap_service_status_label = tk.Label(self.ap_frame, text="AP Service: unknown", fg="orange")
+        self.ap_service_status_label.pack(side=tk.LEFT, padx=(8,4))
+        # Refresh button to re-query AP service state
+        tk.Button(self.ap_frame, text="Refresh", width=8, command=self._update_ap_service_status).pack(side=tk.LEFT, padx=4)
 
         # Second row: Manual Run, Live Readings, Force Stop Logging (make button larger)
         self.manual_btn = tk.Button(self.btn_frame2, text="Manual Run", width=18, command=self.manual_run)
