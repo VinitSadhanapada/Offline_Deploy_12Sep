@@ -12,3 +12,5 @@ __pycache__/
 # backup artifacts
 *_bak_*/
 _bak_archive/
+packages_folder/apt_debs/*chromium*.deb
+packages_folder/apt_debs/*firefox*.deb
