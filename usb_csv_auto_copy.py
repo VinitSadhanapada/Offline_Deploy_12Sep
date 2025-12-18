@@ -106,7 +106,8 @@ def load_jsonc(path: Path) -> Dict:
 
 
 def load_config() -> Dict:
-    alt = Path("/home/pi/meter_config/config.json")
+    from paths import get_config_dir
+    alt = get_config_dir() / "config.json"
     cfg_path = alt if alt.exists() else (ROOT / "config.json")
     if not cfg_path.exists():
         return {}

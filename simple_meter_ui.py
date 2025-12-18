@@ -48,8 +48,9 @@ class SimpleMeterUI(tk.Tk):
         if messagebox.askyesno("Reboot", "Are you sure you want to reboot the Raspberry Pi?"):
             self.run_command(["sudo", "reboot"])
     def edit_config(self):
-        # Use externalized config location
-        config_dir = "/home/pi/meter_config"
+        # Use externalized config location (env override supported)
+        from paths import get_config_dir
+        config_dir = str(get_config_dir())
         os.makedirs(config_dir, exist_ok=True)
         config_path = os.path.join(config_dir, "device_config.json")
         # Create a default file if missing so the editor opens something meaningful
@@ -237,7 +238,8 @@ class SimpleMeterUI(tk.Tk):
     def _get_reading_interval(self):
         try:
             # Prefer externalized main config (.json)
-            config_path = os.path.join("/home/pi/meter_config", "config.json")
+            from paths import get_config_dir
+            config_path = os.path.join(str(get_config_dir()), "config.json")
             if not os.path.exists(config_path):
                 # fallback to local copy so UI remains usable
                 # prefer local .json, then .jsonc for backward compatibility
@@ -848,7 +850,8 @@ class LiveReadingsWindow(tk.Toplevel):
             messagebox.showerror("Error", f"Failed to open Device Configuration Tool: {e}")
 
     def edit_config(self):
-        config_path = "/home/pi/meter_config/device_config.json"
+        from paths import get_config_dir
+        config_path = os.path.join(str(get_config_dir()), "device_config.json")
         if os.path.exists(config_path):
             try:
                 os.system(f"geany {config_path} &")
@@ -907,7 +910,8 @@ class LiveReadingsWindow(tk.Toplevel):
 
     def restore_defaults(self):
         # Restore defaults into externalized config directory
-        config_dir = "/home/pi/meter_config"
+        from paths import get_config_dir
+        config_dir = str(get_config_dir())
         os.makedirs(config_dir, exist_ok=True)
         config_path = os.path.join(config_dir, "device_config.json")
         default_content = "[]\n"

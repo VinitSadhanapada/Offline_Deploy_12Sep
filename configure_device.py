@@ -7,7 +7,8 @@ import os
 import re
 
 # Use externalized config location with .json extension
-CONFIG_DIR = "/home/pi/meter_config"
+from paths import get_config_dir
+CONFIG_DIR = str(get_config_dir())
 os.makedirs(CONFIG_DIR, exist_ok=True)
 CONFIG_PATH = os.path.join(CONFIG_DIR, "device_config.json")
 SUPPORTED_MODELS = ["LG6400", "LG+5220", "LG+5310", "EN8410"]

@@ -35,7 +35,7 @@ if [[ -d "${SCRIPT_DIR%/*}/offline-setup-12Sep" ]]; then
 	PRIMARY_DIR="${SCRIPT_DIR%/*}/offline-setup-12Sep"
 fi
 echo "[INFO] Primary service directory set to: ${PRIMARY_DIR}"
-CONFIG_DIR="/home/pi/meter_config"
+CONFIG_DIR="${METER_CONFIG_DIR:-$HOME/meter_config}"
 
 # 1) Create/repair the venv and app directories as the target (non-root) user so
 #    runtime directories (logs, data) are owned by the service user.
@@ -68,8 +68,8 @@ chmod -R u+rwX,g+rwX,o+rX "$SCRIPT_DIR/logs" "$SCRIPT_DIR/data" || true
 
 # Helper: parse JSONC in bash via python to extract a value
 jsonc_get() {
-        local key_path="$1" # e.g. usb_copy.enabled
-        "$PY_EXEC" /home/pi/Desktop/offline-setup-12Sep/tools/jsonc_get.py "$key_path" "/home/pi/meter_config/config.json" || true
+	local key_path="$1" # e.g. usb_copy.enabled
+	"$PY_EXEC" "$SCRIPT_DIR/tools/jsonc_get.py" "$key_path" "$CONFIG_DIR/config.json" || true
 }
 
 USB_ENABLED="$(jsonc_get usb_copy.enabled || true)"

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 try:
+    try:
+        import compat.pymodbus_compat  # ensure compatibility shim runs before pymodbus imports
+    except Exception:
+        pass
     from pymodbus.constants import Endian
 except Exception:
     try:

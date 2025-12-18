@@ -211,8 +211,10 @@ _DEFAULT_DEVICES = [
     {"name": "Suryakund UPS", "address": 2, "model": "LG+5220"},
 ]
 
-# Prefer configuration files at /home/pi/meter_config, then local copies
-_CONFIG_DIR = Path("/home/pi/meter_config")
+from paths import get_config_dir
+
+# Prefer configuration files at environment or home-based meter_config
+_CONFIG_DIR = get_config_dir()
 _SCRIPT_DIR = Path(__file__).parent.absolute()
 _config_candidates = [
     _CONFIG_DIR / "config.json",
@@ -544,7 +546,7 @@ class SimpleDashboard:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.csv_dir.mkdir(parents=True, exist_ok=True)
 
-        # Ensure canonical external config exists at /home/pi/meter_config/config.json
+        # Ensure canonical external config exists at resolved config dir (e.g. $HOME/meter_config)
         try:
             from shutil import copy2
             dest_dir = _CONFIG_DIR
@@ -583,7 +585,10 @@ class SimpleDashboard:
 
             print("✅ Environment setup complete")
         except Exception as e:
-            print(f"⚠️ Warning: could not ensure /home/pi/meter_config/config.json: {e}")
+            try:
+                print(f"⚠️ Warning: could not ensure {dest_file}: {e}")
+            except Exception:
+                print(f"⚠️ Warning: could not ensure config.json: {e}")
 
         # Note: ownership (chown to 'pi:pi') may be required when running on the Pi.
         # Do not attempt to chown here to avoid failures on non-Pi hosts.
@@ -735,6 +740,31 @@ WantedBy=multi-user.target
                 """
                 desired_sim = bool(config.get("SIMULATION_MODE", False))
                 try:
+                    # Compatibility shim: some pymodbus versions expose an
+                    # `ExcCodes` symbol in `pymodbus.constants` while others
+                    # do not. A missing symbol can cause import-time errors in
+                    # certain pymodbus submodules. Patch the constants module
+                    # with a minimal ExcCodes mapping when absent so imports
+                    # below succeed regardless of installed pymodbus version.
+                    try:
+                        import pymodbus.constants as _pm_constants
+                        if not hasattr(_pm_constants, "ExcCodes"):
+                            class ExcCodes:
+                                IllegalFunction = 0x01
+              SlaveFailure = 0x04
+                                Acknowledge = 0x05
+                                SlaveBusy = 0x06
+                                MemoryParityError = 0x08
+                                GatewayPathUnavailable = 0x0A
+                                GatewayNoResponse = 0x0B
+                            _pm_constants.ExcCodes = ExcCodes
+                    except Exception:
+                        # If anything goes wrong patching, continue and let
+                        # the subsequent import raise the original error.
+                        pass
+                                IllegalAddress = 0x02
+                                IllegalValue = 0x03
+                  
                     from pymodbus.client.sync import ModbusSerialClient as ModbusClient
                 except Exception as e:
                     if logger:
