@@ -1,0 +1,10 @@
+[Unit]
+Description=Run USB setup Watchdog every hour
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Unit=watchdog.service
+
+[Install]
+WantedBy=timers.target

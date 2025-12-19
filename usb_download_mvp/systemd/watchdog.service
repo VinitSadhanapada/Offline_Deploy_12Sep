@@ -1,0 +1,13 @@
+[Unit]
+Description=USB setup Watchdog (runs once, invoked by timer)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/pi/Desktop/offline-setup-12Sep
+ExecStart=/usr/bin/bash /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/scripts/watchdog_status.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

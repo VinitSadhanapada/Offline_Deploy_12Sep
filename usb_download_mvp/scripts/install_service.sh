@@ -85,6 +85,14 @@ sudo chmod +x "$REPO_DIR/scripts/"*.sh || true
 sudo chmod 644 /etc/systemd/system/usb_ap.service || true
 sudo chmod 644 /etc/systemd/system/usb_ap_disable.service || true
 sudo chmod +x "$REPO_DIR/scripts/enforce_ap_mode.sh" || true
+sudo cp "$REPO_DIR/systemd/watchdog.service" /etc/systemd/system/watchdog.service || true
+sudo cp "$REPO_DIR/systemd/watchdog.timer" /etc/systemd/system/watchdog.timer || true
+sudo chmod 644 /etc/systemd/system/watchdog.service || true
+sudo chmod 644 /etc/systemd/system/watchdog.timer || true
+sudo systemctl daemon-reload || true
+sudo systemctl enable --now watchdog.timer || true
+
+echo "Installed watchdog.timer — status will be appended to /var/log/usb_watchdog.log every hour" | tee -a /dev/stderr || true
 
 # Restart services
 sudo systemctl restart systemd-networkd avahi-daemon hostapd dnsmasq download-server ssid-hint
