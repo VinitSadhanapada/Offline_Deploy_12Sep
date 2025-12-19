@@ -14,3 +14,6 @@ __pycache__/
 _bak_archive/
 packages_folder/apt_debs/*chromium*.deb
 packages_folder/apt_debs/*firefox*.deb
+
+# Ignore CSV data exports that should not be version-controlled
+data/csv/
