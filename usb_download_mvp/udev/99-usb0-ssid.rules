@@ -1,0 +1,3 @@
+# Trigger SSID hint when usb0 gets carrier
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="usb0", RUN+="/bin/systemctl start ssid-hint@usb0.service"
+ACTION=="change", SUBSYSTEM=="net", KERNEL=="usb0", RUN+="/bin/systemctl start ssid-hint@usb0.service"

@@ -1,0 +1,8 @@
+[Unit]
+Description=Set Wi‑Fi SSID to include usb0 IP (triggered)
+
+[Service]
+Type=oneshot
+Environment=WIFI_COUNTRY=IN
+ExecStart=/bin/bash /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/scripts/ssid_hint.sh
+RemainAfterExit=no

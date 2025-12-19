@@ -1,0 +1,7 @@
+[Match]
+Name=usb*
+
+[Network]
+DHCP=yes
+LinkLocalAddressing=yes
+MulticastDNS=yes

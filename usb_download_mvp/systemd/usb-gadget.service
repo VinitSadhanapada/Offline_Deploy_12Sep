@@ -1,0 +1,11 @@
+[Unit]
+Description=Configure USB Gadget (RNDIS) for fixed IP access
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/scripts/usb_gadget.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

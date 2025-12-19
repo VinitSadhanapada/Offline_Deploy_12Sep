@@ -1,0 +1,8 @@
+[Match]
+Name=usb*
+
+[Network]
+Address=192.168.7.2/24
+DHCPServer=yes
+LinkLocalAddressing=yes
+MulticastDNS=yes

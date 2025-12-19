@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Download Data</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; text-align: center; margin-top: 50px; }
+        .btn {
+            background: #4CAF50; color: white; padding: 20px 40px;
+            font-size: 24px; border: none; border-radius: 8px;
+            cursor: pointer; margin: 20px;
+        }
+        .btn:hover { background: #45a049; }
+        .info { color: #666; margin: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Data Download</h1>
+    <p class="info">Click below to download all data as ZIP file</p>
+
+    <form action="/download_all" method="get">
+        <button type="submit" class="btn">📥 DOWNLOAD ALL DATA</button>
+    </form>
+
+    <p class="info">File will include all data from: {{ data_dir }}</p>
+    <p style="color: green; font-size: 12px;">Connected successfully via USB</p>
+</body>
+</html>
