@@ -9,6 +9,20 @@ pushd "$SCRIPT_DIR" >/dev/null
 
 mkdir -p "$SCRIPT_DIR/logs"
 
+# Logfile for installer runs (append-only)
+LOGFILE="$SCRIPT_DIR/logs/enable_auto_start.run.log"
+mkdir -p "$(dirname "$LOGFILE")"
+touch "$LOGFILE" || true
+
+# Helper to run a command and tee its output to LOGFILE while
+# also letting the output appear on stdout (so the Technician UI shows it).
+run_and_log() {
+	echo "[CMD] $*" | tee -a "$LOGFILE"
+	# Use a subshell to preserve exit code
+	("$@") 2>&1 | tee -a "$LOGFILE"
+	return ${PIPESTATUS[0]:-0}
+}
+
 TARGET_USER="${SUDO_USER:-$USER}"
 echo "[INFO] Preparing meter-dashboard environment for user: ${TARGET_USER}"
 
@@ -39,17 +53,17 @@ CONFIG_DIR="${METER_CONFIG_DIR:-$HOME/meter_config}"
 
 # 1) Create/repair the venv and app directories as the target (non-root) user so
 #    runtime directories (logs, data) are owned by the service user.
-sudo -u "$TARGET_USER" -H "$PY_EXEC" simple_rpi_dashboard.py --setup || {
-	echo "[ERROR] Env setup failed. Try manually as ${TARGET_USER}:"
-	echo "        $PY_EXEC $SCRIPT_DIR/simple_rpi_dashboard.py --setup"
+run_and_log sudo -u "$TARGET_USER" -H "$PY_EXEC" simple_rpi_dashboard.py --setup || {
+	echo "[ERROR] Env setup failed. Try manually as ${TARGET_USER}:" | tee -a "$LOGFILE"
+	echo "        $PY_EXEC $SCRIPT_DIR/simple_rpi_dashboard.py --setup" | tee -a "$LOGFILE"
 	exit 1
 }
 
 # 2) Create and enable the systemd service (requires root)
-echo "[INFO] Creating/enabling meter-dashboard systemd service"
-"$PY_EXEC" simple_rpi_dashboard.py --create-service || {
-	echo "[ERROR] Failed to create service. You can run manually:"
-	echo "        sudo $PY_EXEC $SCRIPT_DIR/simple_rpi_dashboard.py --create-service"
+echo "[INFO] Creating/enabling meter-dashboard systemd service" | tee -a "$LOGFILE"
+run_and_log "$PY_EXEC" simple_rpi_dashboard.py --create-service || {
+	echo "[ERROR] Failed to create service. You can run manually:" | tee -a "$LOGFILE"
+	echo "        sudo $PY_EXEC $SCRIPT_DIR/simple_rpi_dashboard.py --create-service" | tee -a "$LOGFILE"
 	exit 1
 }
 
@@ -129,6 +143,16 @@ UNIT
 
 echo "[INFO] Reloading systemd daemon"
 sudo systemctl daemon-reload
+
+# If the usb_download_mvp helper installer exists, run it and capture logs
+if [[ -x "${SCRIPT_DIR}/usb_download_mvp/scripts/install_service.sh" ]]; then
+	echo "[INFO] Running usb_download_mvp/scripts/install_service.sh" | tee -a "$LOGFILE"
+	run_and_log sudo bash "${SCRIPT_DIR}/usb_download_mvp/scripts/install_service.sh" || {
+		echo "[WARN] usb_download_mvp installer returned non-zero exit code" | tee -a "$LOGFILE"
+	}
+else
+	echo "[INFO] usb_download_mvp installer script not present or not executable; skipping" | tee -a "$LOGFILE"
+fi
 
 if [[ "${USB_ENABLED}" == "true" ]]; then
 	echo "[INFO] Enabling and starting usb_csv_auto_copy.service"
