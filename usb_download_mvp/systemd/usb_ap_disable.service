@@ -1,0 +1,15 @@
+[Unit]
+Description=USB AP Mode disable helper (wrapper)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/scripts/disable_ap_mode_wrapper.sh
+WorkingDirectory=/home/pi/Desktop/offline-setup-12Sep
+StandardOutput=journal
+StandardError=journal
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
