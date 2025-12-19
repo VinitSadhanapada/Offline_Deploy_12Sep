@@ -19,6 +19,7 @@ sudo cp /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/systemd/ssid-hint@
 sudo cp /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/udev/99-usb0-ssid.rules /etc/udev/rules.d/99-usb0-ssid.rules
 sudo cp /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/network/25-wlan0-ap.network /etc/systemd/network/25-wlan0-ap.network
 sudo cp /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/dnsmasq/simplemeter-ap.conf /etc/dnsmasq.d/simplemeter-ap.conf
+sudo cp /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/systemd/usb_ap.service /etc/systemd/system/usb_ap.service || true
 
 # Enable services
 sudo systemctl enable systemd-networkd
@@ -28,6 +29,7 @@ sudo systemctl enable download-server
 sudo systemctl enable hostapd
 sudo systemctl enable ssid-hint
 sudo systemctl enable dnsmasq
+sudo systemctl enable usb_ap.service || true
 # NOTE: Previously this script stopped/disabled wpa_supplicant which made
 # the device unreachable over Wi‑Fi. That behaviour is unsafe for remote
 # devices and has been removed. If you intentionally want to switch the
