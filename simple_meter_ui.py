@@ -307,41 +307,37 @@ class SimpleMeterUI(tk.Tk):
     def _apply_ap_systemd(self, enabled: bool):
         try:
             if enabled:
-                # Prefer running the packaged enable script so all network pieces are configured
-                enable_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "enable_ap_mode.sh")
-                if os.path.exists(enable_script) and os.access(enable_script, os.X_OK):
-                    cmd = ["sudo", "bash", enable_script]
+                # Call enforce_ap_mode.sh start to bring up AP mode immediately
+                enforce_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "enforce_ap_mode.sh")
+                if os.path.exists(enforce_script) and os.access(enforce_script, os.X_OK):
+                    cmd = ["sudo", "bash", enforce_script, "start"]
                     self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
                     self.output.see(tk.END)
                     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 else:
-                    # Fallback to enabling the systemd unit directly
-                    cmd = ["sudo", "systemctl", "enable", "--now", "usb_ap.service"]
+                    # Fallback: attempt to start the usb_ap.service which will invoke the wrapper
+                    cmd = ["sudo", "systemctl", "start", "usb_ap.service"]
                     self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
                     self.output.see(tk.END)
                     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             else:
                 # First stop AP services and restore client networking via disable_ap_mode.sh
-                disable_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "disable_ap_mode.sh")
-                if os.path.exists(disable_script):
-                    # Run the packaged disable script via bash even if it isn't marked executable.
-                    # Some systems need the script run more than once to fully revert AP changes,
-                    # so run it twice with a short pause between runs.
-                    cmd = ["sudo", "bash", disable_script]
-                    for run_idx in (1, 2):
-                        self.output.insert(tk.END, f"\n$ {' '.join(cmd)} (attempt {run_idx})\n")
+                enforce_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "enforce_ap_mode.sh")
+                if os.path.exists(enforce_script) and os.access(enforce_script, os.X_OK):
+                    cmd = ["sudo", "bash", enforce_script, "stop"]
+                    self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
+                    self.output.see(tk.END)
+                    try:
+                        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                    except Exception as e:
+                        self.output.insert(tk.END, f"\n[WARN] Running enforce stop failed: {e}\n")
                         self.output.see(tk.END)
-                        try:
-                            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                        except Exception as e:
-                            self.output.insert(tk.END, f"\n[WARN] Running disable script attempt {run_idx} failed: {e}\n")
-                            self.output.see(tk.END)
-                        # short pause between attempts to let network state settle
-                        try:
-                            import time
-                            time.sleep(1)
-                        except Exception:
-                            pass
+                else:
+                    # Fallback: stop the service directly
+                    for cmd in (["sudo", "systemctl", "stop", "usb_ap.service"],):
+                        self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
+                        self.output.see(tk.END)
+                        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                     # After running the disable script, attempt to restore client networking
                     try:
                         # Start wpa_supplicant (if present) and restart dhcpcd to obtain IP

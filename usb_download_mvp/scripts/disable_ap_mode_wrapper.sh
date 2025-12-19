@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null && pwd)"
 WRAP_LOG="/var/log/usb_ap_disable.log"
-INNER_SCRIPT="$SCRIPT_DIR/scripts/disable_ap_mode.sh"
+INNER_SCRIPT="$SCRIPT_DIR/scripts/enforce_ap_mode.sh"
 
 mkdir -p "$(dirname "$WRAP_LOG")"
 touch "$WRAP_LOG" || true
@@ -20,9 +20,9 @@ if [[ ! -x "$INNER_SCRIPT" ]]; then
     exit 2
 fi
 
-# Run the inner script, capture both stdout and stderr to journal and log
+# Run the enforce script in stop mode
 set +e
-"$INNER_SCRIPT" 2>&1 | tee -a "$WRAP_LOG"
+"$INNER_SCRIPT" stop 2>&1 | tee -a "$WRAP_LOG"
 RC=${PIPESTATUS[0]:-0}
 set -e
 
