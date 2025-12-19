@@ -33,7 +33,7 @@ pip3 install -r /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/requiremen
 
 # 3) Test run (foreground)
 python3 /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/server.py
-# Visit http://192.168.7.2 or http://raspberrypi.local
+# Visit http://192.168.7.2:8080 or http://raspberrypi.local:8080
 
 # 4) Install as a service (auto-start)
 chmod +x /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/scripts/install_service.sh
@@ -54,7 +54,7 @@ User=pi
 WorkingDirectory=/home/pi/Desktop/offline-setup-12Sep/usb_download_mvp
 ExecStart=/usr/bin/python3 /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/server.py
 Restart=always
-Environment=USB_MVP_PORT=80
+Environment=USB_MVP_PORT=8080
 Environment=USB_MVP_DATA_DIR=/home/pi/Desktop/offline-setup-12Sep/data/csv
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE

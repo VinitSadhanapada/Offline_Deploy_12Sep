@@ -1,11 +1,11 @@
 [Unit]
-Description=USB AP Mode disable helper (wrapper)
+Description=USB AP Mode disable helper (calls enforce_ap_mode.sh)
 After=network.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/bash /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/scripts/disable_ap_mode_wrapper.sh
+ExecStart=/usr/bin/bash /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/scripts/enforce_ap_mode.sh stop
 WorkingDirectory=/home/pi/Desktop/offline-setup-12Sep
 StandardOutput=journal
 StandardError=journal
