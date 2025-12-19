@@ -4,7 +4,7 @@ set -euo pipefail
 # Repository root (parent of this scripts/ directory)
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null && pwd)"
 VENV="$REPO_DIR/.venv"
-REQ_FILE="$REPO_DIR/usb_download_mvp/requirements.txt"
+REQ_FILE="$REPO_DIR/requirements.txt"
 
 # Determine non-root user to create / populate venv when script is run via sudo
 RUN_AS="${SUDO_USER:-${USER:-pi}}"
@@ -47,17 +47,18 @@ else
 fi
 
 # Configure USB network
-sudo cp "$REPO_DIR/usb_download_mvp/network/05-usb0.network" /etc/systemd/network/05-usb0.network
+
+sudo cp "$REPO_DIR/network/05-usb0.network" /etc/systemd/network/05-usb0.network
 
 # Deploy systemd service files and other config
-sudo cp "$REPO_DIR/usb_download_mvp/systemd/download-server.service" /etc/systemd/system/download-server.service
-sudo cp "$REPO_DIR/usb_download_mvp/systemd/ssid-hint.service" /etc/systemd/system/ssid-hint.service
-sudo cp "$REPO_DIR/usb_download_mvp/systemd/ssid-hint@.service" /etc/systemd/system/ssid-hint@.service
-sudo cp "$REPO_DIR/usb_download_mvp/udev/99-usb0-ssid.rules" /etc/udev/rules.d/99-usb0-ssid.rules
-sudo cp "$REPO_DIR/usb_download_mvp/network/25-wlan0-ap.network" /etc/systemd/network/25-wlan0-ap.network
-sudo cp "$REPO_DIR/usb_download_mvp/dnsmasq/simplemeter-ap.conf" /etc/dnsmasq.d/simplemeter-ap.conf
-sudo cp "$REPO_DIR/usb_download_mvp/systemd/usb_ap.service" /etc/systemd/system/usb_ap.service || true
-sudo cp "$REPO_DIR/usb_download_mvp/systemd/usb_ap_disable.service" /etc/systemd/system/usb_ap_disable.service || true
+sudo cp "$REPO_DIR/systemd/download-server.service" /etc/systemd/system/download-server.service
+sudo cp "$REPO_DIR/systemd/ssid-hint.service" /etc/systemd/system/ssid-hint.service
+sudo cp "$REPO_DIR/systemd/ssid-hint@.service" /etc/systemd/system/ssid-hint@.service
+sudo cp "$REPO_DIR/udev/99-usb0-ssid.rules" /etc/udev/rules.d/99-usb0-ssid.rules
+sudo cp "$REPO_DIR/network/25-wlan0-ap.network" /etc/systemd/network/25-wlan0-ap.network
+sudo cp "$REPO_DIR/dnsmasq/simplemeter-ap.conf" /etc/dnsmasq.d/simplemeter-ap.conf
+sudo cp "$REPO_DIR/systemd/usb_ap.service" /etc/systemd/system/usb_ap.service || true
+sudo cp "$REPO_DIR/systemd/usb_ap_disable.service" /etc/systemd/system/usb_ap_disable.service || true
 
 # Enable services
 sudo systemctl enable systemd-networkd
@@ -80,7 +81,7 @@ sudo udevadm control --reload-rules
 # Ensure scripts that need execution permission are executable. On a
 # fresh clone the executable bit may be missing; set it explicitly so
 # systemd units and manual invocations work.
-sudo chmod +x "$REPO_DIR/usb_download_mvp/scripts/"*.sh || true
+sudo chmod +x "$REPO_DIR/scripts/"*.sh || true
 sudo chmod 644 /etc/systemd/system/usb_ap.service || true
 sudo chmod 644 /etc/systemd/system/usb_ap_disable.service || true
 
