@@ -77,6 +77,26 @@ class MeterDevice:
         self.simulation_mode = simulation_mode
         self.device_address = device_address
         self.reg_values = [0] * len(parameters)
+        # Wrap the provided error_file so legacy modules that write
+        # repeated hardware errors only cause a single logged message.
+        _raw_err = self.error_file
+        if _raw_err is not None:
+            class _SingleErrorFile:
+                def __init__(self, f):
+                    self._f = f
+                    self._reported = False
+                def write(self, s):
+                    if not self._reported:
+                        try:
+                            self._f.write(s)
+                            try:
+                                self._f.flush()
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
+                        self._reported = True
+            self.error_file = _SingleErrorFile(_raw_err)
 
     def read_data(self):
         """

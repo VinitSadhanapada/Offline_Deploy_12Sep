@@ -751,7 +751,9 @@ WantedBy=multi-user.target
                         if not hasattr(_pm_constants, "ExcCodes"):
                             class ExcCodes:
                                 IllegalFunction = 0x01
-              SlaveFailure = 0x04
+                                IllegalAddress = 0x02
+                                IllegalValue = 0x03
+                                SlaveFailure = 0x04
                                 Acknowledge = 0x05
                                 SlaveBusy = 0x06
                                 MemoryParityError = 0x08
@@ -762,9 +764,7 @@ WantedBy=multi-user.target
                         # If anything goes wrong patching, continue and let
                         # the subsequent import raise the original error.
                         pass
-                                IllegalAddress = 0x02
-                                IllegalValue = 0x03
-                  
+
                     from pymodbus.client.sync import ModbusSerialClient as ModbusClient
                 except Exception as e:
                     if logger:
@@ -780,6 +780,13 @@ WantedBy=multi-user.target
                 try:
                     client = ModbusClient(method="rtu", port=port, stopbits=1, bytesize=8, parity='E', baudrate=9600, timeout=0.5)
                     if client.connect():
+                        # Mark that the serial port could be opened successfully.
+                        # Higher-level code will treat port-open as sufficient
+                        # and avoid treating subsequent read failures as fatal.
+                        try:
+                            setattr(client, "_port_open", True)
+                        except Exception:
+                            pass
                         # Connected: use configured simulation flag (usually False)
                         return client, desired_sim, False
                     if logger:
