@@ -13,7 +13,7 @@ try:
 except ImportError:  # when run as a standalone script
     import config
 
-PORT = int(os.environ.get("USB_MVP_PORT", "80"))
+PORT = int(os.environ.get("USB_MVP_PORT", "8080"))
 DATA_DIR = config.DATA_DIR
 
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), "templates"))
@@ -56,7 +56,7 @@ def download_all():
 def main():
     print("🚀 MVP Download Server Starting...")
     print(f"📁 Serving files from: {DATA_DIR}")
-    print("🌐 Connect via: http://192.168.7.2 or http://raspberrypi.local")
+    print(f"🌐 Connect via: http://192.168.7.2:{PORT} or http://raspberrypi.local:{PORT}")
     print("✅ Ready for USB connection -> Browser -> Click Download")
     app.run(host="0.0.0.0", port=PORT, debug=False)
 

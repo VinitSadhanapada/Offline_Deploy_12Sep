@@ -9,9 +9,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/usb_download_mvp/scripts"
 
 usage() {
-    echo "Usage: $0 [--install|--run|--uninstall|--status]"
+    cat <<USAGE
+Usage: $0 [--install|--run|--uninstall|--status] [--force]
+
+Options:
+  --force    Stop common network managers (NetworkManager, wpa_supplicant, dhcpcd)
+             so hostapd can claim the wireless interface. WARNING: this may
+             disconnect remote SSH sessions.
+USAGE
     exit 2
 }
+
+# If the user supplies --force anywhere, enable destructive mode which will
+# stop NetworkManager/wpa_supplicant/dhcpcd so hostapd can claim wlan0.
+FORCE=false
+if [[ "${*}" == *"--force"* ]]; then
+    FORCE=true
+fi
 
 case "${1:-}" in
     --install)
@@ -50,6 +64,40 @@ UNIT
         ;;
     --run|"")
         echo "Attempting to enable AP services (hostapd/dnsmasq)" | tee -a "$LOG"
+
+        # Optionally stop competing network managers so hostapd can claim the
+        # wireless interface. This is destructive and may drop SSH connections.
+        MARKER=/run/usb_ap_stopped_services
+        if $FORCE; then
+            echo "--force supplied: stopping, masking, and killing NetworkManager/wpa_supplicant/dhcpcd" | tee -a "$LOG"
+            rm -f "$MARKER" || true
+            for svc in NetworkManager wpa_supplicant dhcpcd; do
+                if systemctl list-unit-files | grep -q "^${svc}\.service"; then
+                    if systemctl is-active --quiet "$svc"; then
+                        echo "Stopping $svc" | tee -a "$LOG"
+                        sudo systemctl stop "$svc" 2>&1 | tee -a "$LOG" || true
+                    else
+                        echo "$svc not active; skipping stop" | tee -a "$LOG"
+                    fi
+                    echo "Masking $svc to prevent auto-restart" | tee -a "$LOG"
+                    sudo systemctl mask "$svc" 2>&1 | tee -a "$LOG" || true
+                    sudo systemctl disable "$svc" 2>&1 | tee -a "$LOG" || true
+                    echo "$svc" >> "$MARKER" || true
+                else
+                    echo "$svc not installed; skipping" | tee -a "$LOG"
+                fi
+            done
+
+            # Kill any lingering processes that might respawn the interface
+            echo "Killing lingering processes: wpa_supplicant, dhcpcd, dhclient, NetworkManager" | tee -a "$LOG"
+            sudo pkill -f wpa_supplicant || true
+            sudo pkill -f dhcpcd || true
+            sudo pkill -f dhclient || true
+            sudo pkill -f NetworkManager || true
+
+            echo "Recorded stopped/masked services to $MARKER" | tee -a "$LOG"
+        fi
+
         # Try to start common AP services if available
         for svc in hostapd dnsmasq; do
             if systemctl list-unit-files | grep -q "^${svc}\.service"; then

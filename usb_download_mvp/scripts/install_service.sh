@@ -84,6 +84,7 @@ sudo udevadm control --reload-rules
 sudo chmod +x "$REPO_DIR/scripts/"*.sh || true
 sudo chmod 644 /etc/systemd/system/usb_ap.service || true
 sudo chmod 644 /etc/systemd/system/usb_ap_disable.service || true
+sudo chmod +x "$REPO_DIR/scripts/enforce_ap_mode.sh" || true
 
 # Restart services
 sudo systemctl restart systemd-networkd avahi-daemon hostapd dnsmasq download-server ssid-hint
@@ -91,4 +92,11 @@ sudo systemctl daemon-reload || true
 sudo systemctl restart usb_ap.service || true
 sudo systemctl restart usb_ap_disable.service || true
 
-echo "MVP Download Server installed and started. Access http://raspberrypi.local or http://192.168.7.2"
+echo "MVP Download Server installed and started. Access the server on port 8080:" \
+	| tee -a /dev/stderr || true
+echo "  - Wi‑Fi AP gateway: http://192.168.50.1:8080" \
+	| tee -a /dev/stderr || true
+echo "  - USB gadget:      http://192.168.7.2:8080" \
+	| tee -a /dev/stderr || true
+echo "  - mDNS:            http://raspberrypi.local:8080" \
+	| tee -a /dev/stderr || true
