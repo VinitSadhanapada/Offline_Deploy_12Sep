@@ -15,15 +15,25 @@ echo "Using repo dir: $REPO_DIR"
 sudo apt-get update -y
 sudo apt-get install -y avahi-daemon hostapd dnsmasq
 
-# Create or reuse a top-level venv so other components share the same environment.
+ # Create or reuse a top-level venv so other components share the same environment.
 if [ -x "$VENV/bin/python" ]; then
 	echo "Using existing venv at $VENV"
 else
-	echo "Creating venv at $VENV as user $RUN_AS"
+	echo "Creating venv at $VENV as user $RUN_AS (using copies to avoid symlink failures)"
 	if [ "$(id -u)" -eq 0 ]; then
-		sudo -u "$RUN_AS" python3 -m venv "$VENV"
+		sudo -u "$RUN_AS" python3 -m venv --copies "$VENV" || true
 	else
-		python3 -m venv "$VENV"
+		python3 -m venv --copies "$VENV" || true
+	fi
+	# If venv creation left an incomplete tree (no python), try recreating with --clear
+	if [ ! -x "$VENV/bin/python" ]; then
+		echo "Venv creation incomplete; recreating $VENV with --clear --copies"
+		rm -rf "$VENV"
+		if [ "$(id -u)" -eq 0 ]; then
+			sudo -u "$RUN_AS" python3 -m venv --clear --copies "$VENV"
+		else
+			python3 -m venv --clear --copies "$VENV"
+		fi
 	fi
 fi
 
