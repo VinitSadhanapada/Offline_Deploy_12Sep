@@ -1,5 +1,24 @@
 # Simple Meter Dashboard – Technician UI Quick Start
 
+## Manual update on an existing Pi
+If you already have the `offline-setup-12Sep` folder on a Pi and want to pull the latest branch changes from this repository, run these commands inside the existing folder:
+
+```bash
+cd /home/pi/Desktop/offline-setup-12Sep
+# stash any local changes (including untracked) so nothing is lost
+git stash push -u -m "pre-pull-$(date -u +%Y%m%dT%H%M%SZ)" || true
+# fetch and reset to the remote branch (replace branch name as needed)
+git fetch origin --prune
+git checkout temp-usb-copy-fixes-2025-12-03 || git checkout -b temp-usb-copy-fixes-2025-12-03 origin/temp-usb-copy-fixes-2025-12-03
+git reset --hard origin/temp-usb-copy-fixes-2025-12-03
+# restore executable bits and reload systemd
+chmod +x usb_download_mvp/scripts/*.sh || true
+sudo systemctl daemon-reload || true
+# (optional) run installer if you want services/packages updated
+# sudo bash usb_download_mvp/scripts/install_service.sh
+```
+
+
 **Version:** Electrical IoT UI 1.0.0  
 **Prepared by:** Sudhir Rupapara  
 **Department:** Electrical
