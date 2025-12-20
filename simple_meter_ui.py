@@ -305,35 +305,48 @@ class SimpleMeterUI(tk.Tk):
             return False
 
     def _apply_ap_systemd(self, enabled: bool):
-        try:
-            if enabled:
-                # Enable and start the AP unit (ensures it will run now and at boot)
-                cmd = ["sudo", "systemctl", "enable", "--now", "usb_ap.service"]
-                self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
-                self.output.see(tk.END)
-                try:
-                    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                except Exception as e:
-                    self.output.insert(tk.END, f"\n[WARN] Failed to enable/start usb_ap.service: {e}\n")
-                    self.output.see(tk.END)
-            else:
-                # Disable and stop the AP unit (stops now and removes boot enable)
-                cmd_disable = ["sudo", "systemctl", "disable", "--now", "usb_ap.service"]
-                self.output.insert(tk.END, f"\n$ {' '.join(cmd_disable)}\n")
-                self.output.see(tk.END)
-                try:
-                    subprocess.run(cmd_disable, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                except Exception as e:
-                    self.output.insert(tk.END, f"\n[WARN] Failed to disable/stop usb_ap.service: {e}\n")
-                    self.output.see(tk.END)
-        except Exception as e:
-            self.output.insert(tk.END, f"\n[WARN] Failed to update AP service: {e}\n")
-            self.output.see(tk.END)
-        finally:
+        # Run enable/disable in a background thread to avoid blocking the UI, and
+        # use non-interactive sudo (-n) so we don't get stuck on a password prompt.
+        def worker():
             try:
-                self._update_ap_service_status()
-            except Exception:
-                pass
+                if enabled:
+                    cmd = ["sudo", "-n", "systemctl", "enable", "--now", "usb_ap.service"]
+                    self.after(0, lambda: self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n"))
+                    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                    out = proc.stdout or ""
+                    if proc.returncode != 0:
+                        self.after(0, lambda: self.output.insert(tk.END, f"\n[ERROR] Enabling AP failed (rc={proc.returncode}):\n{out}\n"))
+                        # Suggest manual command since GUI cannot elevate interactively
+                        self.after(0, lambda: self.status_label.config(text="Failed to enable AP: GUI cannot sudo interactively. Run 'sudo systemctl enable --now usb_ap.service' in a terminal.", fg="red"))
+                    else:
+                        self.after(0, lambda: self.output.insert(tk.END, f"\n[OK] AP enabled.\n{out}\n"))
+                else:
+                    cmd_disable = ["sudo", "-n", "systemctl", "disable", "--now", "usb_ap.service"]
+                    self.after(0, lambda: self.output.insert(tk.END, f"\n$ {' '.join(cmd_disable)}\n"))
+                    proc = subprocess.run(cmd_disable, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                    out = proc.stdout or ""
+                    if proc.returncode != 0:
+                        self.after(0, lambda: self.output.insert(tk.END, f"\n[ERROR] Disabling AP failed (rc={proc.returncode}):\n{out}\n"))
+                        self.after(0, lambda: self.status_label.config(text="Failed to disable AP: GUI cannot sudo interactively. Run 'sudo systemctl disable --now usb_ap.service' in a terminal.", fg="red"))
+                    else:
+                        self.after(0, lambda: self.output.insert(tk.END, f"\n[OK] AP disabled.\n{out}\n"))
+            except Exception as e:
+                self.after(0, lambda: self.output.insert(tk.END, f"\n[EXC] Exception while toggling AP: {e}\n"))
+                self.after(0, lambda: self.status_label.config(text=f"Error toggling AP: {e}", fg="red"))
+            finally:
+                # Re-enable the checkbox and refresh status in the main thread
+                try:
+                    self.after(0, lambda: self.ap_toggle.config(state=tk.NORMAL))
+                    self.after(0, self._update_ap_service_status)
+                except Exception:
+                    pass
+
+        # disable the checkbox while the operation runs
+        try:
+            self.ap_toggle.config(state=tk.DISABLED)
+        except Exception:
+            pass
+        threading.Thread(target=worker, daemon=True).start()
 
     def _update_ap_service_status(self):
         try:
