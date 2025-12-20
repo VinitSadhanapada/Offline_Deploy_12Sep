@@ -56,11 +56,51 @@ sudo cp "$REPO_DIR/systemd/ssid-hint.service" /etc/systemd/system/ssid-hint.serv
 sudo cp "$REPO_DIR/systemd/ssid-hint@.service" /etc/systemd/system/ssid-hint@.service
 sudo cp "$REPO_DIR/udev/99-usb0-ssid.rules" /etc/udev/rules.d/99-usb0-ssid.rules
 sudo cp "$REPO_DIR/network/25-wlan0-ap.network" /etc/systemd/network/25-wlan0-ap.network
-sudo cp "$REPO_DIR/dnsmasq/simplemeter-ap.conf" /etc/dnsmasq.d/simplemeter-ap.conf
+# Deploy dnsmasq AP config from the repo. Overwrite if missing or empty
+REPO_DNS_CONF="$REPO_DIR/dnsmasq/simplemeter-ap.conf"
+TARGET_DNS_CONF="/etc/dnsmasq.d/simplemeter-ap.conf"
+if [ -f "$REPO_DNS_CONF" ]; then
+	# Copy unconditionally but be defensive: if a placeholder file exists
+	# with no meaningful contents, overwrite it.
+	sudo cp "$REPO_DNS_CONF" "$TARGET_DNS_CONF"
+	# If target is unexpectedly tiny (e.g. 0/1 bytes), overwrite from repo again
+	if [ -f "$TARGET_DNS_CONF" ] && [ $(stat -c%s "$TARGET_DNS_CONF") -le 8 ]; then
+		echo "Warning: $TARGET_DNS_CONF seems empty; overwriting from repo"
+		sudo cp "$REPO_DNS_CONF" "$TARGET_DNS_CONF"
+	fi
+else
+	echo "Repository dnsmasq template $REPO_DNS_CONF missing; skipping copy"
+fi
 sudo cp "$REPO_DIR/systemd/usb_ap.service" /etc/systemd/system/usb_ap.service || true
 sudo cp "$REPO_DIR/systemd/usb_ap_disable.service" /etc/systemd/system/usb_ap_disable.service || true
 
 # Enable services
+	# Ensure hostapd will be startable: unmask (package installs may leave
+	# hostapd masked) and create a hostapd.conf if missing using the
+	# included ssid_hint helper. This guarantees the service can be enabled
+	# and will come back after reboot.
+	sudo systemctl unmask hostapd || true
+	if [ ! -f /etc/hostapd/hostapd.conf ] && [ -x "$REPO_DIR/usb_download_mvp/scripts/ssid_hint.sh" ]; then
+			echo "Creating /etc/hostapd/hostapd.conf using ssid_hint.sh"
+			sudo bash "$REPO_DIR/usb_download_mvp/scripts/ssid_hint.sh" || true
+	else
+			echo "/etc/hostapd/hostapd.conf already exists or ssid_hint.sh not present; skipping generation"
+	fi
+
+	  # Prevent dhcpcd from automatically configuring wlan0 (avoids
+	  # conflicting client IPs when AP mode is enabled). This is
+	  # intentionally idempotent and does not restart dhcpcd to avoid
+	  # disrupting remote sessions during install.
+	  DHCPCD_CONF=/etc/dhcpcd.conf
+	  if [ -f "$DHCPCD_CONF" ]; then
+		  if ! grep -q '^denyinterfaces wlan0' "$DHCPCD_CONF"; then
+			  echo 'denyinterfaces wlan0' | sudo tee -a "$DHCPCD_CONF" >/dev/null || true
+			  echo "Appended 'denyinterfaces wlan0' to $DHCPCD_CONF (will take effect after dhcpcd restart or reboot)"
+		  else
+			  echo "$DHCPCD_CONF already contains denyinterfaces wlan0; skipping"
+		  fi
+	  fi
+
 sudo systemctl enable systemd-networkd
 sudo systemctl enable avahi-daemon
 sudo systemctl daemon-reload

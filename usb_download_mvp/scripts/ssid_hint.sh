@@ -56,8 +56,22 @@ sudo systemctl restart hostapd
 
 # Ensure dnsmasq has an AP config so clients receive DHCP leases.
 DNS_CONF=/etc/dnsmasq.d/simplemeter-ap.conf
+DNS_CONF=/etc/dnsmasq.d/simplemeter-ap.conf
+# If dnsmasq AP conf is missing or effectively empty, write the standard
+# AP DHCP configuration. This prevents placeholder/zero-byte files from
+# blocking DHCP on fresh installs.
+write_dns_conf=0
 if [ ! -f "$DNS_CONF" ]; then
-    cat > /tmp/simplemeter-ap.conf.$$ <<'DNSCONF'
+  write_dns_conf=1
+else
+  # If the file is very small (<=8 bytes) treat it as empty/placeholder
+  size=$(stat -c%s "$DNS_CONF" 2>/dev/null || echo 0)
+  if [ "$size" -le 8 ]; then
+    write_dns_conf=1
+  fi
+fi
+if [ "$write_dns_conf" -eq 1 ]; then
+  cat > /tmp/simplemeter-ap.conf.$$ <<'DNSCONF'
 interface=wlan0
 bind-interfaces
 domain-needed
@@ -65,6 +79,6 @@ bogus-priv
 dhcp-range=192.168.50.10,192.168.50.200,12h
 dhcp-option=3,192.168.50.1
 DNSCONF
-    sudo mv /tmp/simplemeter-ap.conf.$$ "$DNS_CONF" || true
-    sudo systemctl restart dnsmasq || true
+  sudo mv /tmp/simplemeter-ap.conf.$$ "$DNS_CONF" || true
+  sudo systemctl restart dnsmasq || true
 fi
