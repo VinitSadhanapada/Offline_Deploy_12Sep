@@ -1,21 +1,40 @@
 # Simple Meter Dashboard – Technician UI Quick Start
 
 ## Manual update on an existing Pi
-If you already have the `offline-setup-12Sep` folder on a Pi and want to pull the latest branch changes from this repository, run these commands inside the existing folder:
+If you want to update a Pi that may or may not already have the folder, run the following from any account on the Pi. This will create `~/Desktop/offline-setup-12Sep` if missing (by cloning the repository), or update the existing checkout if present. Replace the branch name below if you prefer a different branch.
 
 ```bash
-cd /home/pi/Desktop/offline-setup-12Sep
-# stash any local changes (including untracked) so nothing is lost
-git stash push -u -m "pre-pull-$(date -u +%Y%m%dT%H%M%SZ)" || true
-# fetch and reset to the remote branch (replace branch name as needed)
-git fetch origin --prune
-git checkout temp-usb-copy-fixes-2025-12-03 || git checkout -b temp-usb-copy-fixes-2025-12-03 origin/temp-usb-copy-fixes-2025-12-03
-git reset --hard origin/temp-usb-copy-fixes-2025-12-03
-# restore executable bits and reload systemd
-chmod +x usb_download_mvp/scripts/*.sh || true
+# Where to place the project on the Desktop
+DEST="$HOME/Desktop/offline-setup-12Sep"
+BRANCH="temp-usb-copy-fixes-2025-12-03"
+REPO="https://github.com/VinitSadhanapada/Offline_Deploy_12Sep.git"
+
+if [ ! -d "$DEST/.git" ]; then
+	echo "Folder not found; cloning into $DEST"
+	git clone --branch "$BRANCH" "$REPO" "$DEST"
+else
+	echo "Folder exists; updating $DEST"
+	cd "$DEST"
+	# stash local changes (including untracked) so nothing is lost
+	git stash push -u -m "pre-pull-$(date -u +%Y%m%dT%H%M%SZ)" || true
+	git fetch origin --prune
+	if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+		git checkout "$BRANCH" || git checkout -b "$BRANCH" "origin/$BRANCH"
+		git reset --hard "origin/$BRANCH"
+	else
+		echo "Remote branch origin/$BRANCH not found; updating local branch $BRANCH (no remote)"
+		git checkout "$BRANCH" || git checkout -b "$BRANCH"
+	fi
+fi
+
+# Ensure executable bits for scripts and reload systemd unit files
+chmod +x "$DEST"/usb_download_mvp/scripts/*.sh || true
 sudo systemctl daemon-reload || true
-# (optional) run installer if you want services/packages updated
-# sudo bash usb_download_mvp/scripts/install_service.sh
+
+# Optional: run installer to (re)install services/packages (requires sudo)
+# sudo bash "$DEST"/usb_download_mvp/scripts/install_service.sh
+
+echo "Update complete. Inspect any stashed changes with: git -C $DEST stash list"
 ```
 
 
