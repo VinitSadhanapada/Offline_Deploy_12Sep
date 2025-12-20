@@ -144,7 +144,7 @@ echo "MVP Download Server installed and started. Access the server on port 8080:
 	| tee -a /dev/stderr || true
 echo "  - Wi‑Fi AP gateway: http://192.168.50.1:8080" \
 	| tee -a /dev/stderr || true
-echo "  - USB gadget:      http://192.168.7.2:8080" \
+echo "  - USB gadget (optional): http://192.168.7.2:8080 (only if USB gadget/network is enabled)" \
 	| tee -a /dev/stderr || true
 echo "  - mDNS:            http://raspberrypi.local:8080" \
 	| tee -a /dev/stderr || true
