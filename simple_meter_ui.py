@@ -307,84 +307,25 @@ class SimpleMeterUI(tk.Tk):
     def _apply_ap_systemd(self, enabled: bool):
         try:
             if enabled:
-                # Call enforce_ap_mode.sh start to bring up AP mode immediately
-                enforce_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "enforce_ap_mode.sh")
-                if os.path.exists(enforce_script) and os.access(enforce_script, os.X_OK):
-                    cmd = ["sudo", "bash", enforce_script, "start"]
-                    self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
-                    self.output.see(tk.END)
+                # Enable and start the AP unit (ensures it will run now and at boot)
+                cmd = ["sudo", "systemctl", "enable", "--now", "usb_ap.service"]
+                self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
+                self.output.see(tk.END)
+                try:
                     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                else:
-                    # Fallback: attempt to start the `usb_ap.service` which will invoke
-                    # the central `enforce_ap_mode.sh start` action via the unit's ExecStart.
-                    cmd = ["sudo", "systemctl", "start", "usb_ap.service"]
-                    self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
+                except Exception as e:
+                    self.output.insert(tk.END, f"\n[WARN] Failed to enable/start usb_ap.service: {e}\n")
                     self.output.see(tk.END)
-                    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             else:
-                # First stop AP services and restore client networking via the unit
-                # (which invokes `enforce_ap_mode.sh stop`).
-                enforce_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "enforce_ap_mode.sh")
-                if os.path.exists(enforce_script) and os.access(enforce_script, os.X_OK):
-                    cmd = ["sudo", "bash", enforce_script, "stop"]
-                    self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
-                    self.output.see(tk.END)
-                    try:
-                        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                    except Exception as e:
-                        self.output.insert(tk.END, f"\n[WARN] Running enforce stop failed: {e}\n")
-                        self.output.see(tk.END)
-                else:
-                    # Fallback: stop the service directly
-                    for cmd in (["sudo", "systemctl", "stop", "usb_ap.service"],):
-                        self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
-                        self.output.see(tk.END)
-                        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                    # After running the disable script, attempt to restore client networking
-                    try:
-                        # Start wpa_supplicant (if present) and restart dhcpcd to obtain IP
-                        for svc in ("wpa_supplicant", "dhcpcd", "NetworkManager", "systemd-networkd"):
-                            try:
-                                subprocess.run(["sudo", "systemctl", "restart", svc], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                                self.output.insert(tk.END, f"\n$ sudo systemctl restart {svc}\n")
-                                self.output.see(tk.END)
-                            except Exception:
-                                # ignore individual failures; continue trying others
-                                pass
-                        # Bring wlan0 up and ask wpa_supplicant to reconfigure if available
-                        try:
-                            subprocess.run(["sudo", "ip", "link", "set", "wlan0", "up"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                            self.output.insert(tk.END, "\n$ sudo ip link set wlan0 up\n")
-                            self.output.see(tk.END)
-                        except Exception:
-                            pass
-                        # Try reconfiguring wpa_supplicant via wpa_cli if present
-                        try:
-                            subprocess.run(["sudo", "wpa_cli", "-i", "wlan0", "reconfigure"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                            self.output.insert(tk.END, "\n$ sudo wpa_cli -i wlan0 reconfigure\n")
-                            self.output.see(tk.END)
-                        except Exception:
-                            pass
-                        # Finally attempt to renew DHCP lease
-                        try:
-                            subprocess.run(["sudo", "dhclient", "-v", "wlan0"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                            self.output.insert(tk.END, "\n$ sudo dhclient -v wlan0\n")
-                            self.output.see(tk.END)
-                        except Exception:
-                            pass
-                    except Exception:
-                        pass
-                else:
-                    # Fallback: stop hostapd/dnsmasq directly
-                    for cmd in (["sudo", "systemctl", "stop", "hostapd"], ["sudo", "systemctl", "stop", "dnsmasq"]):
-                        self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
-                        self.output.see(tk.END)
-                        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                # Then disable the usb_ap.service so it won't run at boot
+                # Disable and stop the AP unit (stops now and removes boot enable)
                 cmd_disable = ["sudo", "systemctl", "disable", "--now", "usb_ap.service"]
                 self.output.insert(tk.END, f"\n$ {' '.join(cmd_disable)}\n")
                 self.output.see(tk.END)
-                subprocess.run(cmd_disable, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                try:
+                    subprocess.run(cmd_disable, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                except Exception as e:
+                    self.output.insert(tk.END, f"\n[WARN] Failed to disable/stop usb_ap.service: {e}\n")
+                    self.output.see(tk.END)
         except Exception as e:
             self.output.insert(tk.END, f"\n[WARN] Failed to update AP service: {e}\n")
             self.output.see(tk.END)

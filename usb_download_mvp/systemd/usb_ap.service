@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/bash /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/scripts/enforce_ap_mode.sh start
+ExecStop=/usr/bin/bash /home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/scripts/enforce_ap_mode.sh stop
 WorkingDirectory=/home/pi/Desktop/offline-setup-12Sep
 StandardOutput=journal
 StandardError=journal
