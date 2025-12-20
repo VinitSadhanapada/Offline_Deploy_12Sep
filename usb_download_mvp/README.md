@@ -63,6 +63,30 @@ CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 WantedBy=multi-user.target
 ```
 
+## AP Control Units
+
+- `usb_ap.service`: oneshot unit that enables Wi‑Fi AP mode by running
+	`usb_download_mvp/scripts/enforce_ap_mode.sh start` (this unit now calls the
+	enforce script directly via its `ExecStart`). Start it with:
+
+```bash
+sudo systemctl start usb_ap.service
+```
+
+- `usb_ap_disable.service`: oneshot unit that disables AP mode and attempts to
+	restore client networking by running `usb_download_mvp/scripts/enforce_ap_mode.sh stop`.
+	Start it with:
+
+```bash
+sudo systemctl start usb_ap_disable.service
+```
+
+Notes:
+- The older wrapper scripts have been removed; the systemd units invoke
+	`enforce_ap_mode.sh` directly. If you previously invoked wrapper scripts,
+	call the units above instead.
+
+
 ## USB Network Config (template)
 Path: `/home/pi/Desktop/offline-setup-12Sep/usb_download_mvp/network/05-usb0.network`
 ```ini

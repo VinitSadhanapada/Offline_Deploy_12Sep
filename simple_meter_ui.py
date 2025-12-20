@@ -315,13 +315,15 @@ class SimpleMeterUI(tk.Tk):
                     self.output.see(tk.END)
                     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 else:
-                    # Fallback: attempt to start the usb_ap.service which will invoke the wrapper
+                    # Fallback: attempt to start the `usb_ap.service` which will invoke
+                    # the central `enforce_ap_mode.sh start` action via the unit's ExecStart.
                     cmd = ["sudo", "systemctl", "start", "usb_ap.service"]
                     self.output.insert(tk.END, f"\n$ {' '.join(cmd)}\n")
                     self.output.see(tk.END)
                     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             else:
-                # First stop AP services and restore client networking via disable_ap_mode.sh
+                # First stop AP services and restore client networking via the unit
+                # (which invokes `enforce_ap_mode.sh stop`).
                 enforce_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "enforce_ap_mode.sh")
                 if os.path.exists(enforce_script) and os.access(enforce_script, os.X_OK):
                     cmd = ["sudo", "bash", enforce_script, "stop"]
