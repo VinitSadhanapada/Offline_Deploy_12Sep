@@ -330,6 +330,22 @@ class SimpleMeterUI(tk.Tk):
                         self.after(0, lambda: self.status_label.config(text="Failed to disable AP: GUI cannot sudo interactively. Run 'sudo systemctl disable --now usb_ap.service' in a terminal.", fg="red"))
                     else:
                         self.after(0, lambda: self.output.insert(tk.END, f"\n[OK] AP disabled.\n{out}\n"))
+
+                    # Final step: explicitly call enforce_ap_mode.sh stop as some systems
+                    # may not invoke the stop action via systemctl reliably. Run it
+                    # unconditionally to ensure services/processes are restored.
+                    try:
+                        enforce_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "enforce_ap_mode.sh")
+                        stop_cmd = ["sudo", "bash", enforce_script, "stop"]
+                        self.after(0, lambda: self.output.insert(tk.END, f"\n$ {' '.join(stop_cmd)}\n"))
+                        stop_proc = subprocess.run(stop_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                        stop_out = stop_proc.stdout or ""
+                        if stop_proc.returncode != 0:
+                            self.after(0, lambda: self.output.insert(tk.END, f"\n[WARN] enforce_ap_mode.sh stop returned rc={stop_proc.returncode}:\n{stop_out}\n"))
+                        else:
+                            self.after(0, lambda: self.output.insert(tk.END, f"\n[OK] enforce_ap_mode.sh stop completed.\n{stop_out}\n"))
+                    except Exception as e:
+                        self.after(0, lambda: self.output.insert(tk.END, f"\n[EXC] Failed to run enforce_ap_mode.sh stop: {e}\n"))
             except Exception as e:
                 self.after(0, lambda: self.output.insert(tk.END, f"\n[EXC] Exception while toggling AP: {e}\n"))
                 self.after(0, lambda: self.status_label.config(text=f"Error toggling AP: {e}", fg="red"))
