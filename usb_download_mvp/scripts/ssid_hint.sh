@@ -53,3 +53,18 @@ sudo systemctl restart hostapd
 
 # Provide a tiny DHCP range via dnsmasq (optional, so phones can see SSID without connecting)
 # We only need SSID visible; dnsmasq not strictly required unless connecting.
+
+# Ensure dnsmasq has an AP config so clients receive DHCP leases.
+DNS_CONF=/etc/dnsmasq.d/simplemeter-ap.conf
+if [ ! -f "$DNS_CONF" ]; then
+    cat > /tmp/simplemeter-ap.conf.$$ <<'DNSCONF'
+interface=wlan0
+bind-interfaces
+domain-needed
+bogus-priv
+dhcp-range=192.168.50.10,192.168.50.200,12h
+dhcp-option=3,192.168.50.1
+DNSCONF
+    sudo mv /tmp/simplemeter-ap.conf.$$ "$DNS_CONF" || true
+    sudo systemctl restart dnsmasq || true
+fi
