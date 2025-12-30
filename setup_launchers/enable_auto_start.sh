@@ -4,13 +4,15 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the actual project root (parent of setup_launchers/)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SETUP_LAUNCHERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pushd "$SCRIPT_DIR" >/dev/null
 
-mkdir -p "$SCRIPT_DIR/logs"
+mkdir -p "$SETUP_LAUNCHERS_DIR/logs"
 
 # Logfile for installer runs (append-only)
-LOGFILE="$SCRIPT_DIR/logs/enable_auto_start.run.log"
+LOGFILE="$SETUP_LAUNCHERS_DIR/logs/enable_auto_start.run.log"
 mkdir -p "$(dirname "$LOGFILE")"
 touch "$LOGFILE" || true
 
@@ -53,7 +55,7 @@ CONFIG_DIR="${METER_CONFIG_DIR:-$HOME/meter_config}"
 
 # 1) Create/repair the venv and app directories as the target (non-root) user so
 #    runtime directories (logs, data) are owned by the service user.
-run_and_log sudo -u "$TARGET_USER" -H "$PY_EXEC" simple_rpi_dashboard.py --setup || {
+run_and_log sudo -u "$TARGET_USER" -H "$PY_EXEC" "$SCRIPT_DIR/simple_rpi_dashboard.py" --setup || {
 	echo "[ERROR] Env setup failed. Try manually as ${TARGET_USER}:" | tee -a "$LOGFILE"
 	echo "        $PY_EXEC $SCRIPT_DIR/simple_rpi_dashboard.py --setup" | tee -a "$LOGFILE"
 	exit 1
