@@ -43,18 +43,18 @@ test_header() {
 
 test_pass() {
     echo -e "${GREEN}✓ PASS${NC}: $1"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 test_fail() {
     echo -e "${RED}✗ FAIL${NC}: $1"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
     FAILED_TESTS+=("$1")
 }
 
 test_warn() {
     echo -e "${YELLOW}⚠ WARN${NC}: $1"
-    ((TESTS_WARNING++))
+    TESTS_WARNING=$((TESTS_WARNING + 1))
     WARNING_TESTS+=("$1")
 }
 
