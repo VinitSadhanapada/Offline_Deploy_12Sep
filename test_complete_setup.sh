@@ -3,7 +3,7 @@
 # Tests all components end-to-end on a fresh Raspberry Pi
 # Usage: sudo bash test_complete_setup.sh
 
-set -euo pipefail
+set -eo pipefail
 
 # Colors for output
 RED='\033[0;31m'
