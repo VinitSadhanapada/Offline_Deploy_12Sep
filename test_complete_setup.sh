@@ -71,56 +71,50 @@ check_command() {
 check_file() {
     if [ -f "$1" ]; then
         test_pass "File exists: $1"
-        return 0
     else
         test_fail "File not found: $1"
-        return 1
     fi
+    return 0
 }
 
 check_dir() {
     if [ -d "$1" ]; then
         test_pass "Directory exists: $1"
-        return 0
     else
         test_fail "Directory not found: $1"
-        return 1
     fi
+    return 0
 }
 
 check_executable() {
     if [ -x "$1" ]; then
         test_pass "File is executable: $1"
-        return 0
     else
         test_fail "File not executable: $1"
-        return 1
     fi
+    return 0
 }
 
 check_service() {
     if systemctl is-enabled "$1" &> /dev/null; then
         if systemctl is-active "$1" &> /dev/null; then
             test_pass "Service '$1' is enabled and running"
-            return 0
         else
             test_warn "Service '$1' is enabled but not running"
-            return 1
         fi
     else
         test_fail "Service '$1' is not enabled"
-        return 1
     fi
+    return 0
 }
 
 check_python_module() {
     if python3 -c "import $1" 2>/dev/null; then
         test_pass "Python module '$1' is installed"
-        return 0
     else
         test_fail "Python module '$1' not found"
-        return 1
     fi
+    return 0
 }
 
 #############################################################################
