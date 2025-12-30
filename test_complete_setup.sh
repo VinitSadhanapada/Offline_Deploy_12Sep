@@ -134,11 +134,11 @@ check_command "systemctl"
 check_command "sudo"
 
 # Check Python version
-PYTHON_VERSION=$(python3 --version 2>&1 | grep -oP '\d+\.\d+')
-if [[ "$PYTHON_VERSION" == "3.13" ]] || [[ "$PYTHON_VERSION" == "3.11" ]] || [[ "$PYTHON_VERSION" == "3.12" ]]; then
+PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}' | cut -d. -f1,2 || echo "unknown")
+if [ "$PYTHON_VERSION" = "3.13" ] || [ "$PYTHON_VERSION" = "3.11" ] || [ "$PYTHON_VERSION" = "3.12" ] || [ "$PYTHON_VERSION" = "3.9" ] || [ "$PYTHON_VERSION" = "3.10" ]; then
     test_pass "Python version $PYTHON_VERSION is compatible"
 else
-    test_warn "Python version $PYTHON_VERSION (expected 3.11+)"
+    test_warn "Python version $PYTHON_VERSION (expected 3.9+)"
 fi
 
 # Check if running with sudo
@@ -152,7 +152,7 @@ else
 fi
 
 # Get actual user
-ACTUAL_USER="${SUDO_USER:-$USER}"
+ACTUAL_USER="${SUDO_USER:-${USER:-pi}}"
 test_pass "Detected user: $ACTUAL_USER"
 
 #############################################################################
