@@ -1,19 +1,63 @@
-# virtualenv
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+
+# Virtual environment
 venv/
-# logs and archives
+env/
+ENV/
+.venv/
+
+# Logs
 logs/
 logs/archive/
-# copied USB data
+*.log
+mqtt_log.txt
+rtc_drift_log.csv
+
+# Data files (exclude actual readings, keep structure)
+data/csv/
+!data/csv/.gitkeep
+exports/
+!exports/.gitkeep
 COPIED_DATA/
-# editor temp files
+
+# Test results
+test_results/
+/tmp/
+*.tmp
+
+# IDE/Editor
+.vscode/
+.idea/
 *.swp
-*.pyc
-__pycache__/
-# backup artifacts
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+.directory
+
+# Service files
+*.pid
+usb_download_mvp/local_config.json
+
+# Local config overrides
+local_config.json
+config.local.json
+
+# Backup artifacts
 *_bak_*/
 _bak_archive/
+*.bak
+*.backup
+
+# Large apt packages (keep smaller ones)
 packages_folder/apt_debs/*chromium*.deb
 packages_folder/apt_debs/*firefox*.deb
-
-# Ignore CSV data exports that should not be version-controlled
-data/csv/

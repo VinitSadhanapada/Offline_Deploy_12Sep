@@ -1,0 +1,221 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    SSH TERMINAL UI - VISUAL QUICK GUIDE                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STEP 1: PHYSICAL CONNECTION                                                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────┐                              ┌─────────────────┐
+    │   Laptop    │ ──────Ethernet Cable──────── │  Raspberry Pi   │
+    │             │                              │  (In the Field) │
+    └─────────────┘                              └─────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STEP 2: FIND PI'S IP ADDRESS                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    Common IPs:  192.168.1.100  |  192.168.4.1  |  10.0.0.1
+    
+    Or scan: arp -a | grep -i "b8:27:eb\|dc:a6:32"
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STEP 3: CONNECT VIA SSH (From your laptop terminal)                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    $ ssh pi@192.168.1.100
+    password: raspberry (or your configured password)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STEP 4: LAUNCH TERMINAL UI (Once connected to Pi)                           │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    pi@raspberrypi:~ $ cd ~/Desktop/offline-setup-12Sep
+    pi@raspberrypi:~/Desktop/offline-setup-12Sep $ ./terminal_ui.sh
+    
+    ─ OR ─
+    
+    pi@raspberrypi:~/Desktop/offline-setup-12Sep $ python3 terminal_meter_ui.py
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ TERMINAL UI MENU                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    ═══ METER MONITORING SYSTEM - Terminal UI ═══
+    Host: raspberrypi | 2025-12-29 21:00:00
+    ══════════════════════════════════════════════
+    
+    MAIN MENU
+    
+     ► [1] Live Meter Readings      - View real-time meter data
+       [2] Export CSV Data          - Copy CSV files for download
+       [3] View Latest Readings     - Show last readings from CSV
+       [4] System Status            - Check disk, services, and logs
+       [5] View Configuration       - Display current config files
+       [6] Start Manual Reading     - Run one-time meter reading
+       [7] View Logs                - Display recent log entries
+       [8] Help & Info              - SSH download instructions
+       [Q] Quit                     - Exit application
+    
+    ↑/↓: Navigate | ENTER: Select | Q: Quit
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ KEY FEATURES                                                                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    [1] LIVE READINGS
+        ╔═ Meter_1 ═══════════════════════════════════
+        ║ Time:     2025-12-29 21:00:00
+        ║ Model:    LG6400
+        ║ Voltage:  230.5
+        ║ Current:  15.2
+        ║ Power:    3.45
+        
+    [2] EXPORT CSV → Shows command like:
+        scp pi@192.168.1.100:~/Desktop/offline-setup-12Sep/exports/*.csv ./
+        
+    [4] SYSTEM STATUS → Shows:
+        ✓ Running     (Dashboard service)
+        Disk: 10.5GB / 29.5GB used
+        5 recent log files
+        
+    [7] VIEW LOGS → Color coded:
+        INFO lines in green
+        WARNING lines in yellow
+        ERROR lines in red
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ STEP 5: DOWNLOAD DATA (Exit UI with Q, exit SSH, then on your laptop)       │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    METHOD 1: Use the export feature
+    ─────────────────────────────────
+    1. In UI, press [2] Export CSV Data
+    2. Copy the scp command shown
+    3. Press Q to exit UI
+    4. Type: exit (to leave SSH)
+    5. Paste the scp command on your laptop
+    
+    METHOD 2: Direct SCP
+    ────────────────────
+    $ scp pi@192.168.1.100:~/Desktop/offline-setup-12Sep/data/csv/*.csv ./
+    
+    METHOD 3: Use helper script
+    ───────────────────────────
+    $ ./download_meter_data.sh 192.168.1.100
+    (Interactive menu will guide you)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ KEYBOARD SHORTCUTS                                                           │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    ↑ / ↓        Navigate menu up/down
+    ENTER        Select highlighted option
+    1-8          Quick jump to menu item
+    Q            Quit application
+    B            Back to main menu (in subpages)
+    R            Refresh (in live readings)
+    Ctrl+C       Force exit
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ QUICK TIPS                                                                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    ✓ Terminal should be at least 80x24 for best display
+    ✓ Use xterm-256color for full color support
+    ✓ Add alias to your laptop: alias pi-meter='ssh -t pi@IP "cd ~/Desktop/offline-setup-12Sep && python3 terminal_meter_ui.py"'
+    ✓ For continuous monitoring: In UI press [1], use another terminal for downloads
+    ✓ Export feature (option 2) prepares files and shows exact commands with your IP
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ TROUBLESHOOTING                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    PROBLEM                      SOLUTION
+    ───────────────────────────────────────────────────────────────────────────
+    Can't connect via SSH        • Check Ethernet cable
+                                 • Verify IP: ping 192.168.1.100
+                                 • Ensure SSH enabled: sudo systemctl start ssh
+    
+    Colors not showing           • Set terminal: export TERM=xterm-256color
+                                 • Use terminal that supports colors
+    
+    Screen too small             • Resize terminal to 80x24 minimum
+                                 • Zoom out in terminal app
+    
+    No data showing              • Press [6] to start manual reading
+                                 • Check [4] System Status
+                                 • View [7] Logs for errors
+    
+    Download fails               • Verify Pi IP address
+                                 • Check SSH access first: ssh pi@IP
+                                 • Use [2] Export to get exact command
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ONE-COMMAND SHORTCUTS                                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    Connect and launch UI:
+    $ ssh -t pi@192.168.1.100 "cd ~/Desktop/offline-setup-12Sep && python3 terminal_meter_ui.py"
+    
+    Quick view of latest data:
+    $ ssh pi@192.168.1.100 "tail -n 50 ~/Desktop/offline-setup-12Sep/data/csv/readings_all.csv"
+    
+    Download all CSVs:
+    $ scp pi@192.168.1.100:~/Desktop/offline-setup-12Sep/data/csv/*.csv ./meter_data/
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ FILES REFERENCE                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    ON THE PI:
+    ~/Desktop/offline-setup-12Sep/
+    ├── terminal_meter_ui.py       ← Main UI application
+    ├── terminal_ui.sh             ← Quick launcher
+    ├── data/csv/                  ← Meter reading CSV files
+    │   └── readings_all.csv       ← Main data file
+    ├── exports/                   ← Prepared files (after using option 2)
+    └── logs/                      ← System logs
+    
+    ON YOUR LAPTOP:
+    ./download_meter_data.sh       ← Interactive download helper
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ DOCUMENTATION                                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    QUICKSTART_SSH_UI.md              ← 5-minute quick start (this guide)
+    README_SSH_TERMINAL_UI.md         ← Complete detailed guide
+    README_MQTT_TROUBLESHOOT.md       ← MQTT diagnostics
+    TERMINAL_UI_SUMMARY.md            ← Development notes
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ COMPLETE WORKFLOW EXAMPLE                                                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+    LAPTOP:                              PI:
+    ──────                               ───
+    
+    $ ssh pi@192.168.1.100       →       [Connected]
+                                         
+                                         pi@raspberrypi:~ $ cd ~/Desktop/offline-setup-12Sep
+                                         pi@raspberrypi:~/Desktop/offline-setup-12Sep $ ./terminal_ui.sh
+                                         
+                                         [Terminal UI opens]
+                                         Press 1 → View live readings
+                                         Press 2 → Export CSV (copy scp command)
+                                         Press Q → Quit UI
+                                         
+                                         pi@raspberrypi:~/Desktop/offline-setup-12Sep $ exit
+    
+    [Disconnected]               ←       
+    
+    $ scp pi@192.168.1.100:~/Desktop/offline-setup-12Sep/exports/*.csv ./
+    
+    [Files downloaded!]
+    $ ls *.csv
+    readings_all.csv
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  READY TO USE! Connect your laptop via Ethernet and follow the steps above  ║
+╚══════════════════════════════════════════════════════════════════════════════╝

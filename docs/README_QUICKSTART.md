@@ -1,5 +1,10 @@
 # Simple Meter Dashboard – Technician UI Quick Start
 
+> **🆕 NEW: SSH Terminal UI Available!**  
+> For field access without desktop/keyboard/mouse, use the new Terminal UI over SSH.  
+> See **[QUICKSTART_SSH_UI.md](QUICKSTART_SSH_UI.md)** for complete guide.  
+> Quick access: `ssh pi@<IP>` then run `python3 terminal_meter_ui.py`
+
 ## Manual update on an existing Pi
 If you want to update a Pi that may or may not already have the folder, run the following from any account on the Pi. This will create `~/Desktop/offline-setup-12Sep` if missing (by cloning the repository), or update the existing checkout if present. Replace the branch name below if you prefer a different branch.
 
