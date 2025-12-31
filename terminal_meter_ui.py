@@ -94,6 +94,7 @@ class TerminalMeterUI:
             ("6", "Start Manual Reading", "Run one-time meter reading"),
             ("7", "View Logs", "Display recent log entries"),
             ("8", "Help & Info", "SSH download instructions"),
+            ("9", "WiFi AP Control", "Enable/disable WiFi Access Point"),
             ("Q", "Quit", "Exit application"),
         ]
         
@@ -256,10 +257,17 @@ class TerminalMeterUI:
                 # Get IP address
                 try:
                     import socket
-                    hostname = socket.gethostname()
-                    ip_addr = socket.gethostbyname(hostname)
+                    # Use socket trick to get actual LAN IP instead of loopback
+                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    s.connect(("8.8.8.8", 80))
+                    ip_addr = s.getsockname()[0]
+                    s.close()
                 except:
-                    ip_addr = "RPI_IP_ADDRESS"
+                    try:
+                        hostname = socket.gethostname()
+                        ip_addr = socket.gethostbyname(hostname)
+                    except:
+                        ip_addr = "192.168.137.100"  # Fallback to configured static IP
                 
                 instructions = [
                     f"1. From your laptop terminal, run:",
@@ -464,10 +472,17 @@ class TerminalMeterUI:
             # Get IP address
             try:
                 import socket
-                hostname = socket.gethostname()
-                ip_addr = socket.gethostbyname(hostname)
+                # Use socket trick to get actual LAN IP instead of loopback
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                ip_addr = s.getsockname()[0]
+                s.close()
             except:
-                ip_addr = "RPI_IP_ADDRESS"
+                try:
+                    hostname = socket.gethostname()
+                    ip_addr = socket.gethostbyname(hostname)
+                except:
+                    ip_addr = "192.168.137.100"  # Fallback to configured static IP
             
             help_text = [
                 "",
@@ -645,6 +660,166 @@ class TerminalMeterUI:
         self.draw_footer("view")
         self.stdscr.refresh()
     
+    def toggle_wifi_ap(self):
+        """Toggle WiFi Access Point on/off."""
+        self.stdscr.clear()
+        self.draw_header()
+        
+        height, width = self.stdscr.getmaxyx()
+        
+        try:
+            self.stdscr.attron(curses.A_BOLD | curses.color_pair(1))
+            self.stdscr.addstr(3, 2, "WiFi ACCESS POINT CONTROL")
+            self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
+            
+            y_pos = 5
+            
+            # Check current AP status
+            self.stdscr.addstr(y_pos, 2, "Checking AP service status...")
+            self.stdscr.refresh()
+            
+            try:
+                result = subprocess.run(['systemctl', 'is-active', 'usb_ap.service'], 
+                                      capture_output=True, text=True)
+                is_active = result.stdout.strip() == "active"
+                
+                result_enabled = subprocess.run(['systemctl', 'is-enabled', 'usb_ap.service'], 
+                                              capture_output=True, text=True)
+                is_enabled = result_enabled.stdout.strip() == "enabled"
+                
+                y_pos += 2
+                self.stdscr.addstr(y_pos, 2, "Current Status:")
+                y_pos += 1
+                
+                if is_active:
+                    self.stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+                    self.stdscr.addstr(y_pos, 4, "✓ WiFi AP is RUNNING")
+                    self.stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+                else:
+                    self.stdscr.attron(curses.color_pair(4) | curses.A_BOLD)
+                    self.stdscr.addstr(y_pos, 4, "✗ WiFi AP is STOPPED")
+                    self.stdscr.attroff(curses.color_pair(4) | curses.A_BOLD)
+                
+                y_pos += 1
+                
+                if is_enabled:
+                    self.stdscr.attron(curses.color_pair(2))
+                    self.stdscr.addstr(y_pos, 4, "✓ Auto-start: ENABLED")
+                    self.stdscr.attroff(curses.color_pair(2))
+                else:
+                    self.stdscr.attron(curses.color_pair(3))
+                    self.stdscr.addstr(y_pos, 4, "○ Auto-start: DISABLED")
+                    self.stdscr.attroff(curses.color_pair(3))
+                
+                y_pos += 3
+                
+                # Show action options
+                self.stdscr.attron(curses.A_BOLD)
+                self.stdscr.addstr(y_pos, 2, "Available Actions:")
+                self.stdscr.attroff(curses.A_BOLD)
+                y_pos += 2
+                
+                self.stdscr.addstr(y_pos, 4, "[1] Start AP (one-time)")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[2] Stop AP (one-time)")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[3] Enable AP auto-start on boot")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[4] Disable AP auto-start")
+                y_pos += 2
+                
+                self.stdscr.attron(curses.color_pair(3))
+                self.stdscr.addstr(y_pos, 4, "[B] Back to main menu")
+                self.stdscr.attroff(curses.color_pair(3))
+                
+                y_pos += 2
+                
+                # Get user choice
+                self.stdscr.attron(curses.color_pair(6) | curses.A_BOLD)
+                self.stdscr.addstr(y_pos, 2, "Select action (1-4, B): ")
+                self.stdscr.attroff(curses.color_pair(6) | curses.A_BOLD)
+                self.stdscr.refresh()
+                
+                curses.echo()
+                choice = self.stdscr.getch()
+                curses.noecho()
+                
+                y_pos += 2
+                
+                if choice == ord('1'):
+                    self.stdscr.addstr(y_pos, 2, "Starting WiFi AP...")
+                    self.stdscr.refresh()
+                    result = subprocess.run(['sudo', 'systemctl', 'start', 'usb_ap.service'],
+                                          capture_output=True, text=True)
+                    y_pos += 1
+                    if result.returncode == 0:
+                        self.stdscr.attron(curses.color_pair(2))
+                        self.stdscr.addstr(y_pos, 2, "✓ WiFi AP started successfully")
+                        self.stdscr.attroff(curses.color_pair(2))
+                    else:
+                        self.stdscr.attron(curses.color_pair(4))
+                        self.stdscr.addstr(y_pos, 2, f"✗ Failed: {result.stderr[:width-20]}")
+                        self.stdscr.attroff(curses.color_pair(4))
+                
+                elif choice == ord('2'):
+                    self.stdscr.addstr(y_pos, 2, "Stopping WiFi AP...")
+                    self.stdscr.refresh()
+                    result = subprocess.run(['sudo', 'systemctl', 'stop', 'usb_ap.service'],
+                                          capture_output=True, text=True)
+                    y_pos += 1
+                    if result.returncode == 0:
+                        self.stdscr.attron(curses.color_pair(2))
+                        self.stdscr.addstr(y_pos, 2, "✓ WiFi AP stopped successfully")
+                        self.stdscr.attroff(curses.color_pair(2))
+                    else:
+                        self.stdscr.attron(curses.color_pair(4))
+                        self.stdscr.addstr(y_pos, 2, f"✗ Failed: {result.stderr[:width-20]}")
+                        self.stdscr.attroff(curses.color_pair(4))
+                
+                elif choice == ord('3'):
+                    self.stdscr.addstr(y_pos, 2, "Enabling WiFi AP auto-start...")
+                    self.stdscr.refresh()
+                    result = subprocess.run(['sudo', 'systemctl', 'enable', 'usb_ap.service'],
+                                          capture_output=True, text=True)
+                    y_pos += 1
+                    if result.returncode == 0:
+                        self.stdscr.attron(curses.color_pair(2))
+                        self.stdscr.addstr(y_pos, 2, "✓ WiFi AP will now start on boot")
+                        self.stdscr.attroff(curses.color_pair(2))
+                    else:
+                        self.stdscr.attron(curses.color_pair(4))
+                        self.stdscr.addstr(y_pos, 2, f"✗ Failed: {result.stderr[:width-20]}")
+                        self.stdscr.attroff(curses.color_pair(4))
+                
+                elif choice == ord('4'):
+                    self.stdscr.addstr(y_pos, 2, "Disabling WiFi AP auto-start...")
+                    self.stdscr.refresh()
+                    result = subprocess.run(['sudo', 'systemctl', 'disable', 'usb_ap.service'],
+                                          capture_output=True, text=True)
+                    y_pos += 1
+                    if result.returncode == 0:
+                        self.stdscr.attron(curses.color_pair(2))
+                        self.stdscr.addstr(y_pos, 2, "✓ WiFi AP auto-start disabled")
+                        self.stdscr.attroff(curses.color_pair(2))
+                    else:
+                        self.stdscr.attron(curses.color_pair(4))
+                        self.stdscr.addstr(y_pos, 2, f"✗ Failed: {result.stderr[:width-20]}")
+                        self.stdscr.attroff(curses.color_pair(4))
+                
+                elif choice in [ord('b'), ord('B')]:
+                    return
+                
+            except Exception as e:
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(y_pos, 2, f"Error: {str(e)[:width-10]}")
+                self.stdscr.attroff(curses.color_pair(4))
+        
+        except curses.error:
+            pass
+        
+        self.draw_footer("view")
+        self.stdscr.refresh()
+    
     def run(self):
         """Main application loop."""
         while self.running:
@@ -665,7 +840,7 @@ class TerminalMeterUI:
                     self.selected_index = max(0, self.selected_index - 1)
                 
                 elif key == curses.KEY_DOWN:
-                    self.selected_index = min(8, self.selected_index + 1)
+                    self.selected_index = min(9, self.selected_index + 1)
                 
                 elif key in [curses.KEY_ENTER, ord('\n'), ord('\r')]:
                     # Execute selected option
@@ -693,12 +868,15 @@ class TerminalMeterUI:
                     elif self.selected_index == 7:  # Help
                         self.show_help()
                         self.wait_for_key()
-                    elif self.selected_index == 8:  # Quit
+                    elif self.selected_index == 8:  # WiFi AP Control
+                        self.toggle_wifi_ap()
+                        self.wait_for_key()
+                    elif self.selected_index == 9:  # Quit
                         self.running = False
                 
                 # Direct number key selection
                 elif key in [ord('1'), ord('2'), ord('3'), ord('4'), ord('5'), 
-                           ord('6'), ord('7'), ord('8')]:
+                           ord('6'), ord('7'), ord('8'), ord('9')]:
                     self.selected_index = int(chr(key)) - 1
             
             except KeyboardInterrupt:
