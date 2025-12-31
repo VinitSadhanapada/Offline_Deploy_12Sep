@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Complete System Setup (Admin)
+Comment=Run complete Raspberry Pi meter system setup - First time setup only!
+Exec=lxterminal -e bash -c 'cd "$HOME/Desktop/offline-setup-12Sep" && sudo ./setup_launchers/master_setup.sh; echo ""; echo "Press ENTER to close..."; read'
+Icon=system-run
+Terminal=true
+Categories=System;Settings;

@@ -1,0 +1,1 @@
+scripts/setup/quick_setup.sh

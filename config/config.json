@@ -1,0 +1,13 @@
+{
+  "SIMULATION_MODE": false,
+  "READING_INTERVAL": 10,
+  "INTER_DEVICE_DELAY": 0.1,
+  "PORT": "/dev/ttyUSB0",
+  "ENABLE_MQTT": false,
+  "ENABLE_RTC": true,
+  "LOG_LEVEL": "INFO",
+  "usb_copy": {
+    "enabled": true,
+    "eject_after_copy": true
+  }
+}
