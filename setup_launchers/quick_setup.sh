@@ -3,7 +3,8 @@
 # This is a simplified entry point for first-time setup via SSH
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
 
 # Colors
 CYAN='\033[0;36m'
@@ -46,19 +47,19 @@ case $OPTION in
         echo -e "${YELLOW}Running complete system setup...${NC}"
         echo "You will be prompted for sudo password"
         sleep 1
-        sudo ./master_setup.sh
+        sudo "$SCRIPT_DIR/master_setup.sh"
         ;;
     2)
         echo ""
         echo -e "${GREEN}Launching Terminal UI...${NC}"
         sleep 1
-        ./terminal_ui.sh
+        "$PROJECT_ROOT/terminal_ui.sh"
         ;;
     3)
         echo ""
         if command -v python3 &> /dev/null; then
             echo -e "${GREEN}Launching Desktop UI...${NC}"
-            python3 simple_meter_ui.py
+            python3 "$PROJECT_ROOT/simple_meter_ui.py"
         else
             echo -e "${YELLOW}Python3 not found. Install it first.${NC}"
         fi
@@ -74,11 +75,11 @@ case $OPTION in
         systemctl is-active usb-download-server 2>/dev/null || echo "  Not installed/running"
         echo ""
         echo "Disk Space:"
-        df -h . | tail -1
+        df -h "$PROJECT_ROOT" | tail -1
         echo ""
         echo "Recent Logs (last 10 lines):"
-        if [ -d logs ]; then
-            tail -n 10 logs/*.log 2>/dev/null | head -20 || echo "  No logs found"
+        if [ -d "$SCRIPT_DIR/logs" ]; then
+            tail -n 10 "$SCRIPT_DIR/logs"/*.log 2>/dev/null | head -20 || echo "  No logs found"
         else
             echo "  No logs directory"
         fi
