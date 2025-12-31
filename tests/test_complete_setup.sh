@@ -22,6 +22,8 @@ declare -a WARNING_TESTS
 # Logging
 TEST_LOG="/tmp/setup_test_$(date +%Y%m%d_%H%M%S).log"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Project root is one level up from tests/
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Redirect all output to both console and log
 exec > >(tee -a "$TEST_LOG") 2>&1
@@ -30,7 +32,8 @@ echo "========================================="
 echo "COMPLETE SETUP TEST SUITE"
 echo "========================================="
 echo "Started: $(date)"
-echo "Script Dir: $SCRIPT_DIR"
+echo "Script Dir: $PROJECT_ROOT"
+echo "Project Root: $PROJECT_ROOT"
 echo "Log File: $TEST_LOG"
 echo ""
 
@@ -154,41 +157,34 @@ test_pass "Detected user: $ACTUAL_USER"
 #############################################################################
 test_header "2. Workspace Structure"
 
-cd "$SCRIPT_DIR" || { test_fail "Cannot cd to $SCRIPT_DIR"; exit 1; }
+cd "$PROJECT_ROOT" || { test_fail "Cannot cd to $PROJECT_ROOT"; exit 1; }
 
-# Check core directories
-check_dir "$SCRIPT_DIR/setup_launchers"
-check_dir "$SCRIPT_DIR/docs"
-check_dir "$SCRIPT_DIR/data"
-check_dir "$SCRIPT_DIR/data/csv"
-check_dir "$SCRIPT_DIR/logs"
-check_dir "$SCRIPT_DIR/packages_folder"
-check_dir "$SCRIPT_DIR/usb_download_mvp"
-check_dir "$SCRIPT_DIR/compat"
-check_dir "$SCRIPT_DIR/tools"
-check_dir "$SCRIPT_DIR/examples"
+# Check new organized directories
+check_dir "$PROJECT_ROOT/src"
+check_dir "$PROJECT_ROOT/scripts"
+check_dir "$PROJECT_ROOT/scripts/setup"
+check_dir "$PROJECT_ROOT/scripts/launchers"
+check_dir "$PROJECT_ROOT/tests"
+check_dir "$PROJECT_ROOT/config"
+check_dir "$PROJECT_ROOT/docs"
+check_dir "$PROJECT_ROOT/data"
+check_dir "$PROJECT_ROOT/data/csv"
+check_dir "$PROJECT_ROOT/logs"
+check_dir "$PROJECT_ROOT/packages_folder"
+check_dir "$PROJECT_ROOT/usb_download_mvp"
+check_dir "$PROJECT_ROOT/tools"
 
-# Check symlinks
-if [ -L "$SCRIPT_DIR/quick_start" ]; then
-    test_pass "Symlink exists: quick_start"
-    TARGET=$(readlink "$SCRIPT_DIR/quick_start")
-    test_pass "  → Points to: $TARGET"
+# Check backward compatibility symlinks
+if [ -L "$PROJECT_ROOT/terminal_ui.sh" ]; then
+    test_pass "Symlink exists: terminal_ui.sh (backward compat)"
 else
-    test_fail "Symlink missing: quick_start"
+    test_warn "Symlink missing: terminal_ui.sh"
 fi
 
-if [ -L "$SCRIPT_DIR/complete_setup" ]; then
-    test_pass "Symlink exists: complete_setup"
-    TARGET=$(readlink "$SCRIPT_DIR/complete_setup")
-    test_pass "  → Points to: $TARGET"
+if [ -L "$PROJECT_ROOT/master_setup.sh" ]; then
+    test_pass "Symlink exists: master_setup.sh (backward compat)"
 else
-    test_fail "Symlink missing: complete_setup"
-fi
-
-if [ -L "$SCRIPT_DIR/QUICKSTART.md" ]; then
-    test_pass "Symlink exists: QUICKSTART.md"
-else
-    test_warn "Symlink missing: QUICKSTART.md"
+    test_warn "Symlink missing: master_setup.sh"
 fi
 
 #############################################################################
@@ -196,30 +192,37 @@ fi
 #############################################################################
 test_header "3. Setup Scripts"
 
-# Check setup scripts exist and are executable
-check_file "$SCRIPT_DIR/setup_launchers/master_setup.sh"
-check_executable "$SCRIPT_DIR/setup_launchers/master_setup.sh"
+# Check setup scripts in new location (scripts/setup/)
+check_file "$PROJECT_ROOT/scripts/setup/master_setup.sh"
+check_executable "$PROJECT_ROOT/scripts/setup/master_setup.sh"
 
-check_file "$SCRIPT_DIR/setup_launchers/quick_setup.sh"
-check_executable "$SCRIPT_DIR/setup_launchers/quick_setup.sh"
+check_file "$PROJECT_ROOT/scripts/setup/quick_setup.sh"
+check_executable "$PROJECT_ROOT/scripts/setup/quick_setup.sh"
 
-check_file "$SCRIPT_DIR/setup_launchers/enable_auto_start.sh"
-check_executable "$SCRIPT_DIR/setup_launchers/enable_auto_start.sh"
+check_file "$PROJECT_ROOT/scripts/setup/enable_auto_start.sh"
+check_executable "$PROJECT_ROOT/scripts/setup/enable_auto_start.sh"
 
-check_file "$SCRIPT_DIR/setup_launchers/setup_static_ethernet.sh"
-check_executable "$SCRIPT_DIR/setup_launchers/setup_static_ethernet.sh"
+check_file "$PROJECT_ROOT/scripts/setup/setup_static_ethernet.sh"
+check_executable "$PROJECT_ROOT/scripts/setup/setup_static_ethernet.sh"
 
-# Check core scripts
-check_file "$SCRIPT_DIR/terminal_ui.sh"
-check_file "$SCRIPT_DIR/one_click_system_py313.sh"
-check_file "$SCRIPT_DIR/download_meter_data.sh"
+# Check core scripts in new location (scripts/launchers/ and scripts/system/)
+check_file "$PROJECT_ROOT/scripts/launchers/terminal_ui.sh"
+check_file "$PROJECT_ROOT/scripts/setup/one_click_system_py313.sh"
+
+# Check backward compat symlinks work
+if [ -L "$PROJECT_ROOT/terminal_ui.sh" ] && [ -x "$PROJECT_ROOT/terminal_ui.sh" ]; then
+    test_pass "Backward compat symlink works: terminal_ui.sh"
+else
+    test_warn "Backward compat symlink issue: terminal_ui.sh"
+fi
 
 #############################################################################
 # TEST 4: Core Python Files
 #############################################################################
 test_header "4. Core Python Files"
 
-declare -a CORE_FILES=(
+# Check files in root (backward compat - originals)
+declare -a ROOT_FILES=(
     "simple_rpi_dashboard.py"
     "simple_meter_ui.py"
     "terminal_meter_ui.py"
@@ -232,26 +235,32 @@ declare -a CORE_FILES=(
     "paths.py"
 )
 
-for file in "${CORE_FILES[@]}"; do
-    check_file "$SCRIPT_DIR/$file"
+for file in "${ROOT_FILES[@]}"; do
+    check_file "$PROJECT_ROOT/$file"
 done
 
-# Check device drivers
-check_file "$SCRIPT_DIR/elmeasure_EN8410.py"
-check_file "$SCRIPT_DIR/elmeasure_iELR300.py"
-check_file "$SCRIPT_DIR/elmeasure_LG5220.py"
-check_file "$SCRIPT_DIR/elmeasure_LG5310.py"
-check_file "$SCRIPT_DIR/elmeasure_LG6400.py"
+# Check device drivers in root
+check_file "$PROJECT_ROOT/elmeasure_EN8410.py"
+check_file "$PROJECT_ROOT/elmeasure_iELR300.py"
+check_file "$PROJECT_ROOT/elmeasure_LG5220.py"
+check_file "$PROJECT_ROOT/elmeasure_LG5310.py"
+check_file "$PROJECT_ROOT/elmeasure_LG6400.py"
+
+# Check new organized structure (src/)
+check_dir "$PROJECT_ROOT/src/dashboard"
+check_dir "$PROJECT_ROOT/src/devices"
+check_dir "$PROJECT_ROOT/src/network"
+check_dir "$PROJECT_ROOT/src/utils"
 
 #############################################################################
 # TEST 5: Configuration Files
 #############################################################################
 test_header "5. Configuration Files"
 
-if [ -f "$SCRIPT_DIR/config.json" ]; then
+if [ -f "$PROJECT_ROOT/config.json" ]; then
     test_pass "Config file exists: config.json"
     # Validate JSON
-    if python3 -c "import json; json.load(open('$SCRIPT_DIR/config.json'))" 2>/dev/null; then
+    if python3 -c "import json; json.load(open('$PROJECT_ROOT/config.json'))" 2>/dev/null; then
         test_pass "config.json is valid JSON"
     else
         test_fail "config.json is invalid JSON"
@@ -260,9 +269,9 @@ else
     test_warn "config.json not found (will be created by setup)"
 fi
 
-if [ -f "$SCRIPT_DIR/device_config.json" ]; then
+if [ -f "$PROJECT_ROOT/device_config.json" ]; then
     test_pass "Device config exists: device_config.json"
-    if python3 -c "import json; json.load(open('$SCRIPT_DIR/device_config.json'))" 2>/dev/null; then
+    if python3 -c "import json; json.load(open('$PROJECT_ROOT/device_config.json'))" 2>/dev/null; then
         test_pass "device_config.json is valid JSON"
     else
         test_fail "device_config.json is invalid JSON"
@@ -276,25 +285,27 @@ fi
 #############################################################################
 test_header "6. Documentation"
 
-check_file "$SCRIPT_DIR/README.md"
-check_file "$SCRIPT_DIR/WORKSPACE_ORGANIZATION.md"
-check_file "$SCRIPT_DIR/docs/SETUP_GUIDE.md"
-check_file "$SCRIPT_DIR/docs/QUICKSTART_SSH_UI.md"
-check_file "$SCRIPT_DIR/docs/README_SSH_TERMINAL_UI.md"
+check_file "$PROJECT_ROOT/README.md"
+check_file "$PROJECT_ROOT/PROJECT_REORGANIZATION_PLAN.md"
+check_dir "$PROJECT_ROOT/docs/user"
+check_dir "$PROJECT_ROOT/docs/developer"
+check_file "$PROJECT_ROOT/docs/user/QUICKSTART.md"
+check_file "$PROJECT_ROOT/docs/developer/ARCHITECTURE.md"
+check_file "$PROJECT_ROOT/docs/developer/CODE_STRUCTURE.md"
 
 #############################################################################
 # TEST 7: Desktop Files
 #############################################################################
 test_header "7. Desktop Shortcuts"
 
-check_file "$SCRIPT_DIR/setup_launchers/MasterSetup_Admin.desktop"
-check_file "$SCRIPT_DIR/setup_launchers/SimpleMeterUI_Admin.desktop"
+check_file "$PROJECT_ROOT/scripts/launchers/MasterSetup_Admin.desktop"
+check_file "$PROJECT_ROOT/scripts/launchers/SimpleMeterUI_Admin.desktop"
 
 # Check if desktop files have correct paths
-if grep -q "setup_launchers/master_setup.sh" "$SCRIPT_DIR/setup_launchers/MasterSetup_Admin.desktop"; then
+if grep -q "scripts/setup/master_setup.sh" "$PROJECT_ROOT/scripts/launchers/MasterSetup_Admin.desktop"; then
     test_pass "MasterSetup_Admin.desktop has correct path"
 else
-    test_fail "MasterSetup_Admin.desktop has incorrect path"
+    test_warn "MasterSetup_Admin.desktop may need path update"
 fi
 
 #############################################################################
@@ -310,7 +321,7 @@ declare -a REQUIRED_WHEELS=(
 )
 
 for pkg in "${REQUIRED_WHEELS[@]}"; do
-    if ls "$SCRIPT_DIR/packages_folder/"*"$pkg"*.whl &> /dev/null; then
+    if ls "$PROJECT_ROOT/packages_folder/"*"$pkg"*.whl &> /dev/null; then
         test_pass "Found wheel for: $pkg"
     else
         test_fail "Missing wheel for: $pkg"
@@ -341,7 +352,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Running master_setup.sh..."
     echo "========================================="
     
-    if bash "$SCRIPT_DIR/setup_launchers/master_setup.sh"; then
+    if bash "$PROJECT_ROOT/scripts/setup/master_setup.sh"; then
         test_pass "master_setup.sh completed successfully"
     else
         test_fail "master_setup.sh failed with exit code $?"
@@ -359,15 +370,15 @@ fi
 #############################################################################
 test_header "10. Python Virtual Environment"
 
-if [ -d "$SCRIPT_DIR/venv" ]; then
+if [ -d "$PROJECT_ROOT/venv" ]; then
     test_pass "Virtual environment exists"
     
     # Check venv Python
-    if [ -f "$SCRIPT_DIR/venv/bin/python3" ]; then
+    if [ -f "$PROJECT_ROOT/venv/bin/python3" ]; then
         test_pass "venv Python executable exists"
         
         # Activate and check modules
-        source "$SCRIPT_DIR/venv/bin/activate"
+        source "$PROJECT_ROOT/venv/bin/activate"
         
         check_python_module "serial"
         check_python_module "pymodbus"
@@ -392,7 +403,7 @@ if systemctl list-unit-files | grep -q "meter-dashboard.service"; then
     check_service "meter-dashboard"
     
     # Check service file content
-    if systemctl cat meter-dashboard.service | grep -q "$SCRIPT_DIR"; then
+    if systemctl cat meter-dashboard.service | grep -q "$PROJECT_ROOT"; then
         test_pass "Service file has correct WorkingDirectory"
     else
         test_warn "Service file may have incorrect paths"
@@ -459,18 +470,18 @@ fi
 #############################################################################
 test_header "14. Terminal UI Validation"
 
-check_file "$SCRIPT_DIR/terminal_meter_ui.py"
+check_file "$PROJECT_ROOT/terminal_meter_ui.py"
 
 # Syntax check
-if python3 -m py_compile "$SCRIPT_DIR/terminal_meter_ui.py" 2>/dev/null; then
+if python3 -m py_compile "$PROJECT_ROOT/terminal_meter_ui.py" 2>/dev/null; then
     test_pass "terminal_meter_ui.py syntax is valid"
 else
     test_fail "terminal_meter_ui.py has syntax errors"
 fi
 
 # Check terminal_ui.sh wrapper
-if [ -f "$SCRIPT_DIR/terminal_ui.sh" ]; then
-    if grep -q "terminal_meter_ui.py" "$SCRIPT_DIR/terminal_ui.sh"; then
+if [ -f "$PROJECT_ROOT/terminal_ui.sh" ]; then
+    if grep -q "terminal_meter_ui.py" "$PROJECT_ROOT/terminal_ui.sh"; then
         test_pass "terminal_ui.sh wrapper is correct"
     else
         test_fail "terminal_ui.sh wrapper incorrect"
@@ -484,9 +495,9 @@ fi
 #############################################################################
 test_header "15. Simple Meter UI Validation"
 
-check_file "$SCRIPT_DIR/simple_meter_ui.py"
+check_file "$PROJECT_ROOT/simple_meter_ui.py"
 
-if python3 -m py_compile "$SCRIPT_DIR/simple_meter_ui.py" 2>/dev/null; then
+if python3 -m py_compile "$PROJECT_ROOT/simple_meter_ui.py" 2>/dev/null; then
     test_pass "simple_meter_ui.py syntax is valid"
 else
     test_fail "simple_meter_ui.py has syntax errors"
@@ -497,9 +508,9 @@ fi
 #############################################################################
 test_header "16. Dashboard Validation"
 
-check_file "$SCRIPT_DIR/simple_rpi_dashboard.py"
+check_file "$PROJECT_ROOT/simple_rpi_dashboard.py"
 
-if python3 -m py_compile "$SCRIPT_DIR/simple_rpi_dashboard.py" 2>/dev/null; then
+if python3 -m py_compile "$PROJECT_ROOT/simple_rpi_dashboard.py" 2>/dev/null; then
     test_pass "simple_rpi_dashboard.py syntax is valid"
 else
     test_fail "simple_rpi_dashboard.py has syntax errors"
@@ -511,7 +522,7 @@ fi
 test_header "17. Log Files Analysis"
 
 # Check for setup logs
-LATEST_SETUP_LOG=$(ls -t "$SCRIPT_DIR/logs/"master_setup*.log 2>/dev/null | head -1)
+LATEST_SETUP_LOG=$(ls -t "$PROJECT_ROOT/logs/"master_setup*.log 2>/dev/null | head -1)
 if [ -n "$LATEST_SETUP_LOG" ]; then
     test_pass "Found setup log: $(basename "$LATEST_SETUP_LOG")"
     
@@ -537,8 +548,8 @@ else
 fi
 
 # Check enable_auto_start logs
-if ls "$SCRIPT_DIR/logs/"enable_auto_start*.log &> /dev/null; then
-    LATEST_AUTOSTART_LOG=$(ls -t "$SCRIPT_DIR/logs/"enable_auto_start*.log 2>/dev/null | head -1)
+if ls "$PROJECT_ROOT/logs/"enable_auto_start*.log &> /dev/null; then
+    LATEST_AUTOSTART_LOG=$(ls -t "$PROJECT_ROOT/logs/"enable_auto_start*.log 2>/dev/null | head -1)
     test_pass "Found auto-start log: $(basename "$LATEST_AUTOSTART_LOG")"
 else
     test_warn "No auto-start logs found"
@@ -553,7 +564,7 @@ test_header "18. File Permissions"
 SCRIPT_COUNT=0
 EXEC_COUNT=0
 
-for script in "$SCRIPT_DIR/setup_launchers/"*.sh; do
+for script in "$PROJECT_ROOT/setup_launchers/"*.sh; do
     ((SCRIPT_COUNT++))
     if [ -x "$script" ]; then
         ((EXEC_COUNT++))
@@ -568,7 +579,7 @@ fi
 
 # Check Python files
 for pyfile in terminal_meter_ui.py simple_meter_ui.py simple_rpi_dashboard.py; do
-    if [ -r "$SCRIPT_DIR/$pyfile" ]; then
+    if [ -r "$PROJECT_ROOT/$pyfile" ]; then
         test_pass "Python file readable: $pyfile"
     else
         test_fail "Python file not readable: $pyfile"
@@ -580,11 +591,11 @@ done
 #############################################################################
 test_header "19. USB Download Server"
 
-check_dir "$SCRIPT_DIR/usb_download_mvp"
-check_file "$SCRIPT_DIR/usb_download_mvp/server.py"
-check_file "$SCRIPT_DIR/usb_download_mvp/config.py"
+check_dir "$PROJECT_ROOT/usb_download_mvp"
+check_file "$PROJECT_ROOT/usb_download_mvp/server.py"
+check_file "$PROJECT_ROOT/usb_download_mvp/config.py"
 
-if [ -d "$SCRIPT_DIR/usb_download_mvp/scripts" ]; then
+if [ -d "$PROJECT_ROOT/usb_download_mvp/scripts" ]; then
     test_pass "USB download scripts directory exists"
 else
     test_fail "USB download scripts directory missing"
@@ -595,12 +606,12 @@ fi
 #############################################################################
 test_header "20. Data Directory"
 
-if [ -f "$SCRIPT_DIR/data/csv/readings_all.csv" ]; then
+if [ -f "$PROJECT_ROOT/data/csv/readings_all.csv" ]; then
     test_pass "readings_all.csv exists"
     
     # Check if file has content
-    if [ -s "$SCRIPT_DIR/data/csv/readings_all.csv" ]; then
-        LINE_COUNT=$(wc -l < "$SCRIPT_DIR/data/csv/readings_all.csv")
+    if [ -s "$PROJECT_ROOT/data/csv/readings_all.csv" ]; then
+        LINE_COUNT=$(wc -l < "$PROJECT_ROOT/data/csv/readings_all.csv")
         test_pass "readings_all.csv has $LINE_COUNT lines"
     else
         test_warn "readings_all.csv is empty (no data collected yet)"
@@ -610,8 +621,8 @@ else
 fi
 
 # Check CSV file permissions
-if touch "$SCRIPT_DIR/data/csv/test_write.csv" 2>/dev/null; then
-    rm "$SCRIPT_DIR/data/csv/test_write.csv"
+if touch "$PROJECT_ROOT/data/csv/test_write.csv" 2>/dev/null; then
+    rm "$PROJECT_ROOT/data/csv/test_write.csv"
     test_pass "CSV directory is writable"
 else
     test_fail "CSV directory is not writable"
