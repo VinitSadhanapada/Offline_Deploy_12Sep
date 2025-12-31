@@ -1,27 +1,102 @@
 # Raspberry Pi Meter Dashboard System
 
-> **Fresh Install?** Clone this repo and run: `sudo bash test_complete_setup.sh`  
-> **Quick Start:** See [`FRESH_PI_TEST_INSTRUCTIONS.md`](FRESH_PI_TEST_INSTRUCTIONS.md) for complete testing guide
+Professional energy meter data acquisition system for Raspberry Pi.  
+Supports multiple Elmeasure meter models via Modbus RTU with real-time CSV logging.
 
-## 📥 Clone This Repository
+---
+
+## 🚀 Quick Navigation
+
+| **For New Users** | **For Deployment** | **For Developers** |
+|-------------------|--------------------|--------------------|
+| [Quick Start Guide](docs/user/QUICKSTART.md) | [Fresh Pi Setup](FRESH_PI_TEST_INSTRUCTIONS.md) | [Project Reorganization Plan](PROJECT_REORGANIZATION_PLAN.md) |
+| [Troubleshooting](docs/user/TROUBLESHOOTING.md) | [Testing Guide](TESTING_GUIDE.md) | [Testing Framework](TESTING_FRAMEWORK_SUMMARY.md) |
+| [SSH Access](docs/QUICKSTART_SSH_UI.md) | [Python 3.13 Upgrade](docs/UPGRADE_PYTHON_3.13.md) | [Workspace Organization](WORKSPACE_ORGANIZATION.md) |
+
+**📖 NEW: Comprehensive documentation available in [`docs/user/`](docs/user/) directory**
+
+---
+
+## ⚡ Quick Start
+
+### Fresh Installation
 
 ```bash
+# Clone repository
 cd ~/Desktop
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git offline-setup-12Sep
+git clone https://github.com/VinitSadhanapada/Offline_Deploy_12Sep.git offline-setup-12Sep
 cd offline-setup-12Sep
-```
 
-## 🧪 Automated Testing (Fresh Pi)
-
-```bash
-# Run complete test suite (validates and sets up everything)
+# Run automated setup (validates & installs everything)
 sudo bash test_complete_setup.sh
 
-# Or run quick check first
-bash quick_test.sh
+# Or run direct setup
+sudo bash setup_launchers/master_setup.sh
 ```
 
-For detailed testing instructions, see [`FRESH_PI_TEST_INSTRUCTIONS.md`](FRESH_PI_TEST_INSTRUCTIONS.md)
+**⏱ Time:** 15-20 minutes | **See:** [Complete Guide](docs/user/QUICKSTART.md)
+
+**⏱ Time:** 15-20 minutes | **See:** [Complete Guide](docs/user/QUICKSTART.md)
+
+---
+
+## 📱 Access Methods
+
+### Desktop GUI (Mouse/Keyboard)
+
+**Setup & Launch:**
+```bash
+# Double-click in file manager:
+setup_launchers/SimpleMeterUI_Admin.desktop
+
+# Or run from terminal:
+python3 simple_meter_ui.py
+```
+
+**Features:** Device configuration, real-time monitoring, CSV export
+
+---
+
+### Terminal UI (SSH/Headless)
+
+**Connect & Launch:**
+```bash
+# Via Ethernet (default static IP)
+ssh pi@192.168.137.100
+
+# Or via WiFi AP
+ssh pi@192.168.4.1
+
+# Run Terminal UI
+cd ~/Desktop/offline-setup-12Sep
+./terminal_ui.sh
+```
+
+**Features:** Live readings, data export, system status, WiFi AP control
+
+**See:** [Terminal UI Guide](docs/TERMINAL_UI_SUMMARY.md) | [SSH Access](docs/QUICKSTART_SSH_UI.md)
+
+---
+
+## 🧪 Testing & Validation
+
+### Automated Testing (Recommended)
+
+```bash
+# Run complete test suite (validates & sets up everything)
+sudo bash test_complete_setup.sh
+
+# Or run quick validation
+bash quick_test.sh
+
+# Pre-flight check only
+bash preflight_check.sh
+```
+
+**Documentation:**
+- [Testing Guide](TESTING_GUIDE.md) - Complete testing framework
+- [Fresh Pi Instructions](FRESH_PI_TEST_INSTRUCTIONS.md) - Step-by-step testing
+- [Test Framework Summary](TESTING_FRAMEWORK_SUMMARY.md) - Overview
 
 ---
 
