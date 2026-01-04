@@ -7,9 +7,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PY_SYS="python3"
-VENV_DIR="${SCRIPT_DIR}/venv"
-PACKAGES_DIR="${SCRIPT_DIR}/packages_folder"
+VENV_DIR="${PROJECT_ROOT}/venv"
+PACKAGES_DIR="${PROJECT_ROOT}/packages_folder"
 ENABLE_SERVICES=0
 START_UI=0
 ALLOW_SUDO=0
@@ -19,9 +20,9 @@ REQUIRED_MINOR=13
 # Optional offline runtime tarball candidates (prebuilt Python 3.13.5)
 RUNTIME_TARBALL=""
 for cand in \
-  "${SCRIPT_DIR}/python313_runtime.tar.gz" \
-  "${SCRIPT_DIR}/dist_minimal/python313_runtime.tar.gz" \
-  "${SCRIPT_DIR}/packages_folder/python313_runtime.tar.gz"; do
+  "${PROJECT_ROOT}/python313_runtime.tar.gz" \
+  "${PROJECT_ROOT}/dist_minimal/python313_runtime.tar.gz" \
+  "${PROJECT_ROOT}/packages_folder/python313_runtime.tar.gz"; do
   [[ -f "$cand" ]] && { RUNTIME_TARBALL="$cand"; break; }
 done
 
@@ -30,7 +31,7 @@ for arg in "$@"; do
     --enable-services) ENABLE_SERVICES=1 ;;
     --start-ui) START_UI=1 ;;
     --allow-sudo) ALLOW_SUDO=1 ;;
-    --venv-name=*) VENV_DIR="${SCRIPT_DIR}/${arg#*=}" ;;
+    --venv-name=*) VENV_DIR="${PROJECT_ROOT}/${arg#*=}" ;;
     -h|--help)
       cat <<EOF
 Usage: ./one_click_system_py313.sh [--enable-services] [--venv-name=name]
@@ -80,7 +81,7 @@ install_runtime_if_needed() {
       info "System python3 is ${ver:-missing}; offline runtime tarball found: $RUNTIME_TARBALL"
       # First try extracting the runtime locally inside the project (no sudo) so first-run on a fresh image
       # can be passwordless. If that fails, fall back to installing under /usr/local (requires sudo).
-      local local_root="${SCRIPT_DIR}"
+      local local_root="${PROJECT_ROOT}"
       local local_install_dir="${local_root}/python-3.13.5"
       info "Attempting project-local extraction to: $local_install_dir"
       rm -rf "$local_install_dir" || true
@@ -218,7 +219,7 @@ main() {
   enable_services
   echo
   ok "System Python 3.13 venv setup complete. Run dashboard:"
-      echo "  ${VENV_DIR}/bin/python simple_rpi_dashboard.py --run"
+      echo "  cd ${PROJECT_ROOT} && ${VENV_DIR}/bin/python simple_rpi_dashboard.py --run"
 }
 
 main "$@"
@@ -227,6 +228,7 @@ main "$@"
 if [[ "$START_UI" -eq 1 ]]; then
   if [[ -x "${VENV_DIR}/bin/python" ]]; then
     info "Launching Simple Meter UI using: ${VENV_DIR}/bin/python"
+    cd "${PROJECT_ROOT}"
     exec "${VENV_DIR}/bin/python" simple_meter_ui.py
   else
     err "Venv python not found; cannot launch UI"

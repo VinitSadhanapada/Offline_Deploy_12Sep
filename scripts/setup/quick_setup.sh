@@ -78,8 +78,8 @@ case $OPTION in
         df -h "$PROJECT_ROOT" | tail -1
         echo ""
         echo "Recent Logs (last 10 lines):"
-        if [ -d "$SCRIPT_DIR/logs" ]; then
-            tail -n 10 "$SCRIPT_DIR/logs"/*.log 2>/dev/null | head -20 || echo "  No logs found"
+        if [ -d "$PROJECT_ROOT/logs" ]; then
+            tail -n 10 "$PROJECT_ROOT/logs"/*.log 2>/dev/null | head -20 || echo "  No logs found"
         else
             echo "  No logs directory"
         fi

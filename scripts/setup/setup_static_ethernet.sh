@@ -1,21 +1,21 @@
 #!/bin/bash
 # Setup Static Ethernet IP for Direct Laptop Connection
-# This configures eth0 with a static IP while preserving WiFi functionality
+# This configures eth0 with a static IP while preserving WiFi connectivity
+# IMPORTANT: Does NOT set a default gateway on eth0 to preserve WiFi internet
 # Safe to run alongside WiFi AP mode (usb_download_mvp) which uses wlan0
 # Supports both dhcpcd and NetworkManager
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_FILE="$SCRIPT_DIR/logs/setup_ethernet_$(date +%Y%m%d_%H%M%S).log"
-
-# Create logs directory if needed
-mkdir -p "$SCRIPT_DIR/logs"
+LOG_DIR="$SCRIPT_DIR/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/setup_ethernet_$(date +%Y%m%d_%H%M%S).log"
 
 # Configuration
 ETH_INTERFACE="eth0"
 STATIC_IP="192.168.137.100"
 STATIC_SUBNET="24"
-GATEWAY="192.168.137.1"
-DNS_SERVERS="8.8.8.8 1.1.1.1"
+# NOTE: No gateway - this is intentional! We don't want eth0 to become the default route
+# The laptop will set itself as 192.168.137.1 for direct connection only
 
 echo "========================================" | tee -a "$LOG_FILE"
 echo "Ethernet Static IP Setup" | tee -a "$LOG_FILE"
@@ -31,18 +31,19 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 echo "Configuring $ETH_INTERFACE with static IP: $STATIC_IP/$STATIC_SUBNET" | tee -a "$LOG_FILE"
+echo "NOTE: No gateway will be set - WiFi remains the internet route" | tee -a "$LOG_FILE"
 echo "" | tee -a "$LOG_FILE"
 
 # Detect which network manager is in use
 USING_DHCPCD=false
 USING_NETWORKMANAGER=false
 
-if systemctl is-active --quiet dhcpcd; then
-    USING_DHCPCD=true
-    echo "✓ Detected: dhcpcd is running" | tee -a "$LOG_FILE"
-elif systemctl is-active --quiet NetworkManager; then
+if systemctl is-active --quiet NetworkManager; then
     USING_NETWORKMANAGER=true
     echo "✓ Detected: NetworkManager is running" | tee -a "$LOG_FILE"
+elif systemctl is-active --quiet dhcpcd; then
+    USING_DHCPCD=true
+    echo "✓ Detected: dhcpcd is running" | tee -a "$LOG_FILE"
 elif [ -f /etc/dhcpcd.conf ]; then
     USING_DHCPCD=true
     echo "✓ Detected: dhcpcd config exists (service may be inactive)" | tee -a "$LOG_FILE"
@@ -60,35 +61,51 @@ echo "" | tee -a "$LOG_FILE"
 if [ "$USING_NETWORKMANAGER" = true ]; then
     echo "Configuring via NetworkManager..." | tee -a "$LOG_FILE"
     
-    # Find the connection name for eth0
-    CON_NAME=$(nmcli -t -f NAME,DEVICE con show | grep ":$ETH_INTERFACE$" | cut -d: -f1 | head -1)
+    # Find or create a connection for eth0
+    CON_NAME="Ethernet-Static"
     
-    if [ -z "$CON_NAME" ]; then
-        # No existing connection, create one
-        CON_NAME="Ethernet-Static"
-        echo "Creating new connection: $CON_NAME" | tee -a "$LOG_FILE"
-        nmcli con add type ethernet con-name "$CON_NAME" ifname "$ETH_INTERFACE" 2>&1 | tee -a "$LOG_FILE"
-    else
+    # Check if our Ethernet-Static connection already exists
+    if nmcli -t -f NAME con show | grep -q "^${CON_NAME}$"; then
         echo "Using existing connection: $CON_NAME" | tee -a "$LOG_FILE"
+    else
+        # Check if eth0 has any connection
+        EXISTING_CON=$(nmcli -t -f NAME,DEVICE con show | grep ":$ETH_INTERFACE$" | cut -d: -f1 | head -1)
+        if [ -n "$EXISTING_CON" ]; then
+            echo "Using existing connection: $EXISTING_CON" | tee -a "$LOG_FILE"
+            CON_NAME="$EXISTING_CON"
+        else
+            echo "Creating new connection: $CON_NAME" | tee -a "$LOG_FILE"
+            nmcli con add type ethernet con-name "$CON_NAME" ifname "$ETH_INTERFACE" 2>&1 | tee -a "$LOG_FILE"
+        fi
     fi
     
-    # Configure static IP
-    echo "Setting static IP configuration..." | tee -a "$LOG_FILE"
+    # Configure static IP WITHOUT gateway (critical for preserving WiFi internet)
+    echo "Setting static IP configuration (no gateway)..." | tee -a "$LOG_FILE"
     nmcli con mod "$CON_NAME" ipv4.addresses "$STATIC_IP/$STATIC_SUBNET" 2>&1 | tee -a "$LOG_FILE"
-    nmcli con mod "$CON_NAME" ipv4.gateway "$GATEWAY" 2>&1 | tee -a "$LOG_FILE"
-    nmcli con mod "$CON_NAME" ipv4.dns "$DNS_SERVERS" 2>&1 | tee -a "$LOG_FILE"
     nmcli con mod "$CON_NAME" ipv4.method manual 2>&1 | tee -a "$LOG_FILE"
+    
+    # CRITICAL: Prevent eth0 from becoming the default route
+    nmcli con mod "$CON_NAME" ipv4.never-default yes 2>&1 | tee -a "$LOG_FILE"
+    echo "✓ Set ipv4.never-default=yes (WiFi remains internet gateway)" | tee -a "$LOG_FILE"
+    
+    # Remove any gateway setting (we don't need one for direct laptop connection)
+    nmcli con mod "$CON_NAME" ipv4.gateway "" 2>&1 | tee -a "$LOG_FILE" || true
+    
+    # Don't need DNS on eth0 either - WiFi provides it
+    nmcli con mod "$CON_NAME" ipv4.dns "" 2>&1 | tee -a "$LOG_FILE" || true
+    
+    # Autoconnect when cable is plugged in
     nmcli con mod "$CON_NAME" connection.autoconnect yes 2>&1 | tee -a "$LOG_FILE"
     
-    # Bring up the connection
+    # Bring up the connection (may fail if cable not connected - that's OK)
     echo "Activating connection..." | tee -a "$LOG_FILE"
-    nmcli con up "$CON_NAME" 2>&1 | tee -a "$LOG_FILE" || echo "⚠ Connection activation failed (may succeed after cable connected)" | tee -a "$LOG_FILE"
+    nmcli con up "$CON_NAME" 2>&1 | tee -a "$LOG_FILE" || echo "⚠ Connection activation deferred (will activate when cable connected)" | tee -a "$LOG_FILE"
     
     echo "✓ NetworkManager configuration complete" | tee -a "$LOG_FILE"
 fi
 
 #############################################################################
-# dhcpcd Configuration
+# dhcpcd Configuration  
 #############################################################################
 if [ "$USING_DHCPCD" = true ]; then
     echo "Configuring via dhcpcd..." | tee -a "$LOG_FILE"
@@ -100,48 +117,35 @@ if [ "$USING_DHCPCD" = true ]; then
         cp /etc/dhcpcd.conf "$BACKUP"
     fi
 
-    # Check if eth0 static IP already configured
+    # Remove any existing eth0 config
     if grep -q "^interface $ETH_INTERFACE" /etc/dhcpcd.conf 2>/dev/null; then
-        echo "⚠ Warning: $ETH_INTERFACE already configured in /etc/dhcpcd.conf" | tee -a "$LOG_FILE"
-        echo "Checking configuration..." | tee -a "$LOG_FILE"
-        
-        if grep -A3 "^interface $ETH_INTERFACE" /etc/dhcpcd.conf | grep -q "$STATIC_IP"; then
-            echo "✓ Configuration already correct!" | tee -a "$LOG_FILE"
-        else
-            echo "Updating configuration..." | tee -a "$LOG_FILE"
-            # Remove old eth0 config and add new one
-            sed -i "/^interface $ETH_INTERFACE/,/^$/d" /etc/dhcpcd.conf
-        fi
+        echo "Removing old $ETH_INTERFACE configuration..." | tee -a "$LOG_FILE"
+        # Remove the interface block (from "interface eth0" to next blank line or interface)
+        sed -i "/^# Static IP for Ethernet/,/^$/d" /etc/dhcpcd.conf
+        sed -i "/^interface $ETH_INTERFACE/,/^$/d" /etc/dhcpcd.conf
     fi
-    # Check if already configured
-    if ! grep -q "^interface $ETH_INTERFACE" /etc/dhcpcd.conf 2>/dev/null; then
-        # Add static IP configuration
-        echo "" | tee -a "$LOG_FILE"
-        echo "Adding static IP configuration to /etc/dhcpcd.conf..." | tee -a "$LOG_FILE"
-        
-        cat >> /etc/dhcpcd.conf << EOF
+    
+    # Add static IP configuration WITHOUT router/gateway
+    echo "Adding static IP configuration to /etc/dhcpcd.conf..." | tee -a "$LOG_FILE"
+    
+    cat >> /etc/dhcpcd.conf << EOF
 
 # Static IP for Ethernet - Added by setup_static_ethernet.sh on $(date)
 # This allows direct laptop connection via Ethernet cable
-# Does NOT affect wlan0 (WiFi) or AP mode functionality
+# NOTE: No 'static routers' line - WiFi remains the default gateway for internet
 interface $ETH_INTERFACE
 static ip_address=$STATIC_IP/$STATIC_SUBNET
-static routers=$GATEWAY
-static domain_name_servers=$DNS_SERVERS
+# No gateway/router - preserves WiFi as internet route
+nogateway
 EOF
-        
-        echo "✓ Configuration added successfully" | tee -a "$LOG_FILE"
-    fi
+    
+    echo "✓ Configuration added successfully" | tee -a "$LOG_FILE"
     
     # Restart dhcpcd to apply changes
     if systemctl is-active --quiet dhcpcd; then
         echo "Restarting dhcpcd service..." | tee -a "$LOG_FILE"
         systemctl restart dhcpcd 2>&1 | tee -a "$LOG_FILE"
         sleep 2
-    else
-        echo "⚠ dhcpcd service not running, applying manually..." | tee -a "$LOG_FILE"
-        ip addr add $STATIC_IP/$STATIC_SUBNET dev $ETH_INTERFACE 2>&1 | tee -a "$LOG_FILE" || true
-        ip link set $ETH_INTERFACE up 2>&1 | tee -a "$LOG_FILE"
     fi
     
     echo "✓ dhcpcd configuration complete" | tee -a "$LOG_FILE"
@@ -153,93 +157,34 @@ fi
 echo "" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 echo "Current $ETH_INTERFACE status:" | tee -a "$LOG_FILE"
-ip addr show $ETH_INTERFACE | tee -a "$LOG_FILE"
+ip addr show $ETH_INTERFACE 2>&1 | tee -a "$LOG_FILE"
 
 echo "" | tee -a "$LOG_FILE"
-echo "WiFi (wlan0) status (unchanged):" | tee -a "$LOG_FILE"
+echo "WiFi (wlan0) status (should be unchanged):" | tee -a "$LOG_FILE"
 ip addr show wlan0 2>&1 | tee -a "$LOG_FILE" || echo "wlan0 not available" | tee -a "$LOG_FILE"
 
 echo "" | tee -a "$LOG_FILE"
+echo "Default routes (WiFi should remain default):" | tee -a "$LOG_FILE"
+ip route show default 2>&1 | tee -a "$LOG_FILE"
+
+echo "" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 echo "✓ Setup Complete!" | tee -a "$LOG_FILE"
 echo "========================================" | tee -a "$LOG_FILE"
 echo "" | tee -a "$LOG_FILE"
 echo "Ethernet Interface: $ETH_INTERFACE" | tee -a "$LOG_FILE"
 echo "Static IP: $STATIC_IP/$STATIC_SUBNET" | tee -a "$LOG_FILE"
+echo "Gateway: NONE (WiFi remains internet route)" | tee -a "$LOG_FILE"
 echo "" | tee -a "$LOG_FILE"
 echo "From your Windows laptop:" | tee -a "$LOG_FILE"
 echo "  1. Set Windows Ethernet adapter to: 192.168.137.1/24" | tee -a "$LOG_FILE"
 echo "  2. Connect Ethernet cable" | tee -a "$LOG_FILE"
 echo "  3. SSH: ssh pi@$STATIC_IP" | tee -a "$LOG_FILE"
 echo "" | tee -a "$LOG_FILE"
-echo "Note: WiFi (wlan0) and AP mode are NOT affected." | tee -a "$LOG_FILE"
-echo "      Both Ethernet and WiFi can work simultaneously." | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
-echo "A reboot is recommended to ensure configuration persists." | tee -a "$LOG_FILE"
-echo "Run: sudo reboot" | tee -a "$LOG_FILE"
+echo "✓ WiFi internet connectivity is PRESERVED" | tee -a "$LOG_FILE"
+echo "  - eth0 is for direct laptop connection only" | tee -a "$LOG_FILE"
+echo "  - wlan0 remains the default gateway for internet" | tee -a "$LOG_FILE"
 echo "" | tee -a "$LOG_FILE"
 echo "Log saved to: $LOG_FILE" | tee -a "$LOG_FILE"
-fi
 
-# Add static IP configuration for eth0
-echo "" | tee -a "$LOG_FILE"
-echo "Adding static IP configuration to /etc/dhcpcd.conf..." | tee -a "$LOG_FILE"
-
-cat >> /etc/dhcpcd.conf << EOF
-
-# Static IP for Ethernet - Added by setup_static_ethernet.sh on $(date)
-# This allows direct laptop connection via Ethernet cable
-# Does NOT affect wlan0 (WiFi) or AP mode functionality
-interface $ETH_INTERFACE
-static ip_address=$STATIC_IP/$STATIC_SUBNET
-static routers=$GATEWAY
-static domain_name_servers=8.8.8.8 1.1.1.1
-EOF
-
-echo "✓ Configuration added successfully" | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
-
-# Show the added configuration
-echo "Added configuration:" | tee -a "$LOG_FILE"
-echo "-------------------" | tee -a "$LOG_FILE"
-tail -7 /etc/dhcpcd.conf | tee -a "$LOG_FILE"
-echo "-------------------" | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
-
-# Apply immediately (temporary until reboot)
-echo "Applying configuration temporarily (will persist after reboot)..." | tee -a "$LOG_FILE"
-ip addr flush dev $ETH_INTERFACE 2>&1 | tee -a "$LOG_FILE" || true
-ip addr add $STATIC_IP/$STATIC_SUBNET dev $ETH_INTERFACE 2>&1 | tee -a "$LOG_FILE" || true
-ip link set $ETH_INTERFACE up 2>&1 | tee -a "$LOG_FILE" || true
-
-echo "" | tee -a "$LOG_FILE"
-echo "Current $ETH_INTERFACE status:" | tee -a "$LOG_FILE"
-ip addr show $ETH_INTERFACE | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
-
-# Check if wlan0 is still working (if configured)
-if ip link show wlan0 >/dev/null 2>&1; then
-    echo "WiFi (wlan0) status (unchanged):" | tee -a "$LOG_FILE"
-    ip addr show wlan0 2>&1 | head -n 5 | tee -a "$LOG_FILE"
-    echo "" | tee -a "$LOG_FILE"
-fi
-
-echo "========================================" | tee -a "$LOG_FILE"
-echo "✓ Setup Complete!" | tee -a "$LOG_FILE"
-echo "========================================" | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
-echo "Ethernet Interface: $ETH_INTERFACE" | tee -a "$LOG_FILE"
-echo "Static IP: $STATIC_IP/$STATIC_SUBNET" | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
-echo "From your Windows laptop:" | tee -a "$LOG_FILE"
-echo "  1. Set Windows Ethernet adapter to: 192.168.137.1/24" | tee -a "$LOG_FILE"
-echo "  2. Connect Ethernet cable" | tee -a "$LOG_FILE"
-echo "  3. SSH: ssh pi@$STATIC_IP" | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
-echo "Note: WiFi (wlan0) and AP mode are NOT affected." | tee -a "$LOG_FILE"
-echo "      Both Ethernet and WiFi can work simultaneously." | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
-echo "A reboot is recommended to ensure configuration persists." | tee -a "$LOG_FILE"
-echo "Run: sudo reboot" | tee -a "$LOG_FILE"
-echo "" | tee -a "$LOG_FILE"
-echo "Log saved to: $LOG_FILE" | tee -a "$LOG_FILE"
+exit 0

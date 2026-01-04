@@ -798,33 +798,8 @@ WantedBy=multi-user.target
                     return None, desired_sim, False
 
             try:
-                # Prefer grouped legacy modules
-                from legacy_core.macros import PARAMETERS  # type: ignore
-
-                def init_mqtt_if_enabled(config):
-                    if not config.get("ENABLE_MQTT"):
-                        return None
-                    from legacy_core import mqtt_client as _mqtt  # type: ignore
-                    _mqtt.mqtt_main()
-                    return _mqtt
-
-                def build_meters(parameters, devices, client, simulation_mode):
-                    from legacy_core.meter_device import MeterDevice  # type: ignore
-                    meters = []
-                    for i, dev in enumerate(devices):
-                        name = dev.get("name", f"Meter_{i+1}")
-                        addr = dev.get("address", i+1)
-                        model = dev.get("model", "")
-                        m = MeterDevice(name=name, model=model, parameters=parameters, client=client, error_file=None, simulation_mode=simulation_mode, device_address=addr)
-                        meters.append(m)
-                    return meters
-
-                def create_manager(meters, parameters, csv_path, mqtt_module, publish):
-                    from legacy_core.meter_manager import MeterManager  # type: ignore
-                    return MeterManager(meters, parameters, [str(csv_path)], mqtt_client=mqtt_module if publish else None, publish_mqtt=bool(publish))
-            except Exception:
-                # Final fallback to flat root modules
-                from macros import PARAMETERS  # type: ignore
+                # Import from root directory modules
+                from macros import PARAMETERS
 
                 def init_mqtt_if_enabled(config):
                     if not config.get("ENABLE_MQTT"):
@@ -847,6 +822,9 @@ WantedBy=multi-user.target
                 def create_manager(meters, parameters, csv_path, mqtt_module, publish):
                     from meter_manager import MeterManager
                     return MeterManager(meters, parameters, [str(csv_path)], mqtt_client=mqtt_module if publish else None, publish_mqtt=bool(publish))
+            except Exception as e:
+                self.logger.error(f"Failed to import modules: {e}")
+                raise
 
             self.logger.info("Modules imported successfully")
 
@@ -879,13 +857,10 @@ WantedBy=multi-user.target
             mqtt = init_mqtt_if_enabled(CONFIG)
 
             # Create devices and manager
-            # Dynamic CSV naming: <LOCATION>_<DATE>.csv with a compatibility symlink 'readings_all.csv'
+            # Monthly CSV naming: <LOCATION>_<YEAR>-<MONTH>.csv with a compatibility symlink 'readings_all.csv'
             self.csv_dir.mkdir(parents=True, exist_ok=True)
-            try:
-                pi_name = CONFIG.get("PI_NAME") or socket.gethostname()
-            except Exception:
-                pi_name = "pi"
-            # Derive a representative location from first device (fallback 'Unknown')
+            
+            # Derive location from first device (fallback 'Unknown')
             location = "Unknown"
             try:
                 if DEVICE_CONFIG and isinstance(DEVICE_CONFIG, list):
@@ -893,26 +868,47 @@ WantedBy=multi-user.target
                     location = first_loc
             except Exception:
                 pass
+            
             def _sanitize(s: str) -> str:
                 return "".join(ch for ch in s.replace(" ", "-") if ch.isalnum() or ch in ("-","_")) or "value"
-            pi_name_s = _sanitize(str(pi_name))
+            
             location_s = _sanitize(str(location))
-            date_str = datetime.now().strftime("%Y-%m-%d")
-            dynamic_name = f"{location_s}_{date_str}.csv"
-            csv_file = self.csv_dir / dynamic_name
+            
+            # Helper to get current month's CSV filename
+            def get_monthly_csv_path():
+                month_str = datetime.now().strftime("%Y-%m")
+                filename = f"{location_s}_{month_str}.csv"
+                return self.csv_dir / filename
+            
+            # Create initial CSV file for current month
+            csv_file = get_monthly_csv_path()
+            
             # Backwards-compatible symlink
-            legacy = self.csv_dir / "readings_all.csv"
-            try:
-                if legacy.is_symlink() or legacy.exists():
-                    legacy.unlink()
-                # Create/refresh symlink pointing to current dynamic file
-                legacy.symlink_to(dynamic_name)
-            except Exception:
-                # If symlink creation fails, we silently ignore (legacy code will just not see the new file)
-                pass
-            csv_files = [str(csv_file)]
+            def update_symlink(target_file):
+                legacy = self.csv_dir / "readings_all.csv"
+                try:
+                    if legacy.is_symlink() or legacy.exists():
+                        legacy.unlink()
+                    legacy.symlink_to(target_file.name)
+                except Exception:
+                    pass
+            
+            update_symlink(csv_file)
+            
             meters = build_meters(PARAMETERS, DEVICE_CONFIG, client, CONFIG.get("SIMULATION_MODE", False))
+            
+            # Create manager with callback to handle month changes
             manager = create_manager(meters, PARAMETERS, csv_file, mqtt, CONFIG.get("ENABLE_MQTT", False))
+            
+            # Set up month-change callback
+            def on_month_change():
+                """Called when month changes - rotate to new CSV file"""
+                new_csv = get_monthly_csv_path()
+                self.logger.info(f"Month changed - rotating to new CSV: {new_csv.name}")
+                manager.rotate_csv_file(str(new_csv))
+                update_symlink(new_csv)
+            
+            manager.set_month_change_callback(on_month_change)
 
             self.logger.info(f"Dashboard started with {len(meters)} devices")
 

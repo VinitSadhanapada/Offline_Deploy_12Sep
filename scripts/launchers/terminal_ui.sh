@@ -2,7 +2,10 @@
 # Quick launcher for Terminal Meter UI
 # Usage: ./terminal_ui.sh
 
-cd "$(dirname "$0")"
+# Change to project root (two levels up from scripts/launchers)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$PROJECT_ROOT"
 
 # Check if running in SSH session
 if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then

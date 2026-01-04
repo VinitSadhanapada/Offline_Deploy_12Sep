@@ -13,11 +13,21 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+# Detect if running from project root or from scripts/setup/
+if [[ -d "$SCRIPT_DIR/scripts/setup" ]]; then
+    # Running from project root
+    PROJECT_ROOT="$SCRIPT_DIR"
+    SETUP_DIR="$PROJECT_ROOT/scripts/setup"
+else
+    # Running from scripts/setup/
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    SETUP_DIR="$SCRIPT_DIR"
+fi
+cd "$PROJECT_ROOT"
 
 # Create logs directory
-mkdir -p "$SCRIPT_DIR/logs"
-LOG_FILE="$SCRIPT_DIR/logs/master_setup_$(date +%Y%m%d_%H%M%S).log"
+mkdir -p "$PROJECT_ROOT/logs"
+LOG_FILE="$PROJECT_ROOT/logs/master_setup_$(date +%Y%m%d_%H%M%S).log"
 
 # Logging functions
 log_info() {
@@ -64,12 +74,12 @@ log_info "Step 1/$STEPS_TOTAL: Making scripts executable..."
 echo ""
 
 declare -a SCRIPTS=(
-    "enable_auto_start.sh"
-    "setup_static_ethernet.sh"
-    "terminal_ui.sh"
-    "update_pull.sh"
-    "one_click_system_py313.sh"
-    "download_meter_data.sh"
+    "scripts/setup/enable_auto_start.sh"
+    "scripts/setup/setup_static_ethernet.sh"
+    "scripts/launchers/terminal_ui.sh"
+    "scripts/system/update_pull.sh"
+    "scripts/setup/one_click_system_py313.sh"
+    "scripts/system/download_meter_data.sh"
     "usb_download_mvp/scripts/install_service.sh"
     "usb_download_mvp/scripts/enable_ap_mode.sh"
     "usb_download_mvp/scripts/enable_ap_mode_wrapper.sh"
@@ -83,8 +93,8 @@ declare -a SCRIPTS=(
 )
 
 for script in "${SCRIPTS[@]}"; do
-    if [ -f "$SCRIPT_DIR/$script" ]; then
-        chmod +x "$SCRIPT_DIR/$script"
+    if [ -f "$PROJECT_ROOT/$script" ]; then
+        chmod +x "$PROJECT_ROOT/$script"
         log_success "Made executable: $script"
     else
         log_warning "Script not found: $script"
@@ -92,9 +102,9 @@ for script in "${SCRIPTS[@]}"; do
 done
 
 # Make Python files executable
-chmod +x "$SCRIPT_DIR/terminal_meter_ui.py" 2>/dev/null || true
-chmod +x "$SCRIPT_DIR/simple_meter_ui.py" 2>/dev/null || true
-chmod +x "$SCRIPT_DIR/simple_rpi_dashboard.py" 2>/dev/null || true
+chmod +x "$PROJECT_ROOT/terminal_meter_ui.py" 2>/dev/null || true
+chmod +x "$PROJECT_ROOT/simple_meter_ui.py" 2>/dev/null || true
+chmod +x "$PROJECT_ROOT/simple_rpi_dashboard.py" 2>/dev/null || true
 
 STEPS_COMPLETED=$((STEPS_COMPLETED + 1))
 log_success "Step 1 complete: Scripts are executable"
@@ -106,20 +116,20 @@ echo ""
 log_info "Step 2/$STEPS_TOTAL: Creating directories and setting permissions..."
 echo ""
 
-mkdir -p "$SCRIPT_DIR/data/csv"
-mkdir -p "$SCRIPT_DIR/logs"
-mkdir -p "$SCRIPT_DIR/exports"
-mkdir -p "$SCRIPT_DIR/venv313"
+mkdir -p "$PROJECT_ROOT/data/csv"
+mkdir -p "$PROJECT_ROOT/logs"
+mkdir -p "$PROJECT_ROOT/exports"
+mkdir -p "$PROJECT_ROOT/venv313"
 
 # Set ownership
-chown -R "$TARGET_USER:$TARGET_USER" "$SCRIPT_DIR/data" 2>/dev/null || true
-chown -R "$TARGET_USER:$TARGET_USER" "$SCRIPT_DIR/logs" 2>/dev/null || true
-chown -R "$TARGET_USER:$TARGET_USER" "$SCRIPT_DIR/exports" 2>/dev/null || true
+chown -R "$TARGET_USER:$TARGET_USER" "$PROJECT_ROOT/data" 2>/dev/null || true
+chown -R "$TARGET_USER:$TARGET_USER" "$PROJECT_ROOT/logs" 2>/dev/null || true
+chown -R "$TARGET_USER:$TARGET_USER" "$PROJECT_ROOT/exports" 2>/dev/null || true
 
 # Set permissions
-chmod 755 "$SCRIPT_DIR/exports"
-chmod 755 "$SCRIPT_DIR/data"
-chmod 755 "$SCRIPT_DIR/logs"
+chmod 755 "$PROJECT_ROOT/exports"
+chmod 755 "$PROJECT_ROOT/data"
+chmod 755 "$PROJECT_ROOT/logs"
 
 STEPS_COMPLETED=$((STEPS_COMPLETED + 1))
 log_success "Step 2 complete: Directories created"
@@ -131,9 +141,9 @@ echo ""
 log_info "Step 3/$STEPS_TOTAL: Setting up Python environment..."
 echo ""
 
-if [ -f "$SCRIPT_DIR/one_click_system_py313.sh" ]; then
+if [ -f "$SETUP_DIR/one_click_system_py313.sh" ]; then
     log_info "Running one_click_system_py313.sh..."
-    sudo -u "$TARGET_USER" bash "$SCRIPT_DIR/one_click_system_py313.sh" 2>&1 | tee -a "$LOG_FILE" || {
+    sudo -u "$TARGET_USER" bash "$SETUP_DIR/one_click_system_py313.sh" 2>&1 | tee -a "$LOG_FILE" || {
         log_warning "Python 3.13 setup had issues, continuing..."
     }
     STEPS_COMPLETED=$((STEPS_COMPLETED + 1))
@@ -153,8 +163,8 @@ echo ""
 read -p "Do you want to setup static Ethernet IP for laptop SSH access? (y/N) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if [ -f "$SCRIPT_DIR/setup_static_ethernet.sh" ]; then
-        bash "$SCRIPT_DIR/setup_static_ethernet.sh" 2>&1 | tee -a "$LOG_FILE"
+    if [ -f "$SETUP_DIR/setup_static_ethernet.sh" ]; then
+        bash "$SETUP_DIR/setup_static_ethernet.sh" 2>&1 | tee -a "$LOG_FILE"
         log_success "Step 4 complete: Static Ethernet IP configured"
     else
         log_error "setup_static_ethernet.sh not found"
@@ -175,8 +185,8 @@ echo ""
 read -p "Do you want to enable dashboard auto-start on boot? (y/N) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if [ -f "$SCRIPT_DIR/enable_auto_start.sh" ]; then
-        bash "$SCRIPT_DIR/enable_auto_start.sh" 2>&1 | tee -a "$LOG_FILE"
+    if [ -f "$SETUP_DIR/enable_auto_start.sh" ]; then
+        bash "$SETUP_DIR/enable_auto_start.sh" 2>&1 | tee -a "$LOG_FILE"
         log_success "Step 5 complete: Dashboard service enabled"
     else
         log_error "enable_auto_start.sh not found"
@@ -197,8 +207,8 @@ echo ""
 read -p "Do you want to install USB download server and WiFi AP mode? (y/N) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if [ -f "$SCRIPT_DIR/usb_download_mvp/scripts/install_service.sh" ]; then
-        bash "$SCRIPT_DIR/usb_download_mvp/scripts/install_service.sh" 2>&1 | tee -a "$LOG_FILE"
+    if [ -f "$PROJECT_ROOT/usb_download_mvp/scripts/install_service.sh" ]; then
+        bash "$PROJECT_ROOT/usb_download_mvp/scripts/install_service.sh" 2>&1 | tee -a "$LOG_FILE"
         log_success "Step 6 complete: USB download server installed"
     else
         log_error "USB download install script not found"

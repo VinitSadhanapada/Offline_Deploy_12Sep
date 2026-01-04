@@ -4,15 +4,15 @@
 
 set -euo pipefail
 
-# Get the actual project root (parent of setup_launchers/)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SETUP_LAUNCHERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the actual project root (two levels up from scripts/setup/)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pushd "$SCRIPT_DIR" >/dev/null
 
-mkdir -p "$SETUP_LAUNCHERS_DIR/logs"
+mkdir -p "$SCRIPT_DIR/logs"
 
 # Logfile for installer runs (append-only)
-LOGFILE="$SETUP_LAUNCHERS_DIR/logs/enable_auto_start.run.log"
+LOGFILE="$SCRIPT_DIR/logs/enable_auto_start.run.log"
 mkdir -p "$(dirname "$LOGFILE")"
 touch "$LOGFILE" || true
 
