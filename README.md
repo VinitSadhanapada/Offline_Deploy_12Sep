@@ -9,9 +9,9 @@ Supports multiple Elmeasure meter models via Modbus RTU with real-time CSV loggi
 
 | **For New Users** | **For Deployment** | **For Developers** |
 |-------------------|--------------------|--------------------|
-| [Quick Start Guide](docs/user/QUICKSTART.md) | [Fresh Pi Setup](FRESH_PI_TEST_INSTRUCTIONS.md) | [Project Reorganization Plan](PROJECT_REORGANIZATION_PLAN.md) |
-| [Troubleshooting](docs/user/TROUBLESHOOTING.md) | [Testing Guide](TESTING_GUIDE.md) | [Testing Framework](TESTING_FRAMEWORK_SUMMARY.md) |
-| [SSH Access](docs/QUICKSTART_SSH_UI.md) | [Python 3.13 Upgrade](docs/UPGRADE_PYTHON_3.13.md) | [Workspace Organization](WORKSPACE_ORGANIZATION.md) |
+| [Quick Start Guide](docs/user/QUICKSTART.md) | [Fresh Pi Setup](docs/deployment/FRESH_PI_TEST_INSTRUCTIONS.md) | [Project Reorganization](docs/REORGANIZATION_COMPLETE.md) |
+| [Troubleshooting](docs/user/TROUBLESHOOTING.md) | [Testing Guide](docs/testing/TESTING_GUIDE.md) | [Architecture](docs/developer/ARCHITECTURE.md) |
+| [SSH Access](docs/user/SSH_ACCESS.md) | [Python 3.13 Upgrade](docs/UPGRADE_PYTHON_3.13.md) | [Code Structure](docs/developer/CODE_STRUCTURE.md) |
 
 **📖 NEW: Comprehensive documentation available in [`docs/user/`](docs/user/) directory**
 
@@ -31,10 +31,8 @@ cd offline-setup-12Sep
 sudo bash test_complete_setup.sh
 
 # Or run direct setup
-sudo bash setup_launchers/master_setup.sh
+sudo bash scripts/setup/master_setup.sh
 ```
-
-**⏱ Time:** 15-20 minutes | **See:** [Complete Guide](docs/user/QUICKSTART.md)
 
 **⏱ Time:** 15-20 minutes | **See:** [Complete Guide](docs/user/QUICKSTART.md)
 
@@ -47,10 +45,10 @@ sudo bash setup_launchers/master_setup.sh
 **Setup & Launch:**
 ```bash
 # Double-click in file manager:
-setup_launchers/SimpleMeterUI_Admin.desktop
+scripts/launchers/SimpleMeterUI_Admin.desktop
 
 # Or run from terminal:
-python3 simple_meter_ui.py
+python3 src/dashboard/simple_meter_ui.py
 ```
 
 **Features:** Device configuration, real-time monitoring, CSV export
@@ -74,7 +72,7 @@ cd ~/Desktop/offline-setup-12Sep
 
 **Features:** Live readings, data export, system status, WiFi AP control
 
-**See:** [Terminal UI Guide](docs/TERMINAL_UI_SUMMARY.md) | [SSH Access](docs/QUICKSTART_SSH_UI.md)
+**See:** [Terminal UI Guide](docs/user/TERMINAL_UI.md) | [SSH Access](docs/user/SSH_ACCESS.md)
 
 ---
 

@@ -7,7 +7,7 @@ import os
 import re
 
 # Use externalized config location with .json extension
-from paths import get_config_dir
+from src.utils.paths import get_config_dir
 CONFIG_DIR = str(get_config_dir())
 os.makedirs(CONFIG_DIR, exist_ok=True)
 CONFIG_PATH = os.path.join(CONFIG_DIR, "device_config.json")

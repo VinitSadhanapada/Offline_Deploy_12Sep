@@ -8,6 +8,25 @@ import os
 import signal
 import json
 import re
+from pathlib import Path
+
+
+def _find_project_root() -> Path:
+    """Find the project root directory by looking for key markers."""
+    script_path = Path(__file__).resolve()
+    
+    for parent in [script_path.parent, *script_path.parents]:
+        if (parent / "src").is_dir() and (parent / "config").is_dir():
+            return parent
+        if (parent / "venv").is_dir() and (parent / "src").is_dir():
+            return parent
+        if parent == Path.home() or parent == Path("/"):
+            break
+    
+    return script_path.parent.parent.parent
+
+
+PROJECT_ROOT = _find_project_root()
 
 
 class OutputWindow(tk.Toplevel):
@@ -49,7 +68,7 @@ class SimpleMeterUI(tk.Tk):
             self.run_command(["sudo", "reboot"])
     def edit_config(self):
         # Use externalized config location (env override supported)
-        from paths import get_config_dir
+        from src.utils.paths import get_config_dir
         config_dir = str(get_config_dir())
         os.makedirs(config_dir, exist_ok=True)
         config_path = os.path.join(config_dir, "device_config.json")
@@ -71,7 +90,7 @@ class SimpleMeterUI(tk.Tk):
         try:
             import sys
             import importlib.util
-            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configure_device.py")
+            config_path = str(PROJECT_ROOT / "src" / "utils" / "configure_device.py")
             spec = importlib.util.spec_from_file_location("configure_device", config_path)
             config_module = importlib.util.module_from_spec(spec)
             sys.modules["configure_device"] = config_module
@@ -83,7 +102,7 @@ class SimpleMeterUI(tk.Tk):
     def auto_start(self):
         # Run enable_auto_start.sh off the main thread and show immediate feedback
         try:
-            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "enable_auto_start.sh")
+            script_path = str(PROJECT_ROOT / "scripts" / "setup" / "enable_auto_start.sh")
             # Immediate UI feedback and disable button to avoid double-clicks
             self.status_label.config(text="Enabling Auto-Start… this can take a few seconds.", fg="blue")
             try:
@@ -114,7 +133,7 @@ class SimpleMeterUI(tk.Tk):
 
                     # After enabling auto-start, set RTC from current system time (one-off)
                     try:
-                        set_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "set_rtc_from_system.py")
+                        set_script = str(PROJECT_ROOT / "src" / "utils" / "set_rtc_from_system.py")
                         if os.path.exists(set_script):
                             # Run as root to ensure I2C access and write permission
                             proc2 = subprocess.Popen(["sudo", "python3", set_script], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
@@ -184,7 +203,7 @@ class SimpleMeterUI(tk.Tk):
             pass
         # RTC check on startup
         self.after(100, self.check_rtc_status)
-        ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+        ROOT_DIR = str(PROJECT_ROOT)
 
         # Ensure required offline packages are installed from packages_folder
         def _ensure_offline_packages():
@@ -238,13 +257,14 @@ class SimpleMeterUI(tk.Tk):
     def _get_reading_interval(self):
         try:
             # Prefer externalized main config (.json)
-            from paths import get_config_dir
+            from src.utils.paths import get_config_dir
             config_path = os.path.join(str(get_config_dir()), "config.json")
             if not os.path.exists(config_path):
                 # fallback to local copy so UI remains usable
-                # prefer local .json, then .jsonc for backward compatibility
-                local_dir = os.path.dirname(os.path.abspath(__file__))
-                local_json = os.path.join(local_dir, "config.json")
+                # prefer project config/ directory, then root for backward compatibility
+                local_json = str(PROJECT_ROOT / "config" / "config.json")
+                if not os.path.exists(local_json):
+                    local_json = str(PROJECT_ROOT / "config.json")
                 config_path = local_json
             with open(config_path, "r") as f:
                 content = f.read()
@@ -284,7 +304,7 @@ class SimpleMeterUI(tk.Tk):
             return {}
 
     def _save_config_json(self, cfg: dict):
-        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+        cfg_path = str(PROJECT_ROOT / "config" / "config.json")
         try:
             with open(cfg_path, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, indent=4)
@@ -295,7 +315,7 @@ class SimpleMeterUI(tk.Tk):
     def _get_ap_enabled_safe(self) -> bool:
         try:
             # Store AP-on-boot preference locally inside usb_download_mvp to avoid touching global config
-            cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "local_config.json")
+            cfg_path = str(PROJECT_ROOT / "usb_download_mvp" / "local_config.json")
             if not os.path.exists(cfg_path):
                 return False
             cfg = self._load_jsonc(cfg_path)
@@ -335,7 +355,7 @@ class SimpleMeterUI(tk.Tk):
                     # may not invoke the stop action via systemctl reliably. Run it
                     # unconditionally to ensure services/processes are restored.
                     try:
-                        enforce_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "scripts", "enforce_ap_mode.sh")
+                        enforce_script = str(PROJECT_ROOT / "usb_download_mvp" / "scripts" / "enforce_ap_mode.sh")
                         stop_cmd = ["sudo", "bash", enforce_script, "stop"]
                         self.after(0, lambda: self.output.insert(tk.END, f"\n$ {' '.join(stop_cmd)}\n"))
                         stop_proc = subprocess.run(stop_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -382,7 +402,7 @@ class SimpleMeterUI(tk.Tk):
     def on_toggle_ap(self):
         enabled = bool(self.ap_enabled_var.get())
         # Persist the AP preference locally inside usb_download_mvp/local_config.json
-        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usb_download_mvp", "local_config.json")
+        cfg_path = str(PROJECT_ROOT / "usb_download_mvp" / "local_config.json")
         try:
             os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
         except Exception:
@@ -701,15 +721,18 @@ class SimpleMeterUI(tk.Tk):
                 self.output_window = None
 
     def setup_env(self):
-        dashboard_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "simple_rpi_dashboard.py")
+        dashboard_path = str(PROJECT_ROOT / "src" / "dashboard" / "simple_rpi_dashboard.py")
         # Stream setup logs to the main output area (no modal) and refresh RTC status when done
         self.run_command(["python3", "-u", dashboard_path, "--setup"], on_complete=lambda: self.after(100, self.check_rtc_status))
 
     def manual_run(self):
         # Only disable Manual Run button, keep Live Readings enabled
-        dashboard_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "simple_rpi_dashboard.py")
+        dashboard_path = str(PROJECT_ROOT / "src" / "dashboard" / "simple_rpi_dashboard.py")
         # Prefer using the local venv python when available so behavior matches CLI
-        venv_py = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv", "bin", "python")
+        venv_py = str(PROJECT_ROOT / "venv" / "bin" / "python")
+        venv313_py = str(PROJECT_ROOT / "venv313" / "bin" / "python")
+        if os.path.exists(venv313_py):
+            venv_py = venv313_py
         cmd = [venv_py, dashboard_path, "--run", "--force-mqtt"] if os.path.exists(venv_py) else ["python3", dashboard_path, "--run", "--force-mqtt"]
         # Force-enable MQTT publishing during Manual Run so results are pushed to the broker
         self.run_script_window(cmd, "Manual Run Output", True, False)
@@ -732,7 +755,7 @@ class LiveReadingsWindow(tk.Toplevel):
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         # Use single consolidated CSV file
-        csv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "csv")
+        csv_dir = str(PROJECT_ROOT / "data" / "csv")
         single_csv = os.path.join(csv_dir, "readings_all.csv")
 
         # Ensure CSV directory exists and provide a minimal CSV file if missing
@@ -808,7 +831,7 @@ class LiveReadingsWindow(tk.Toplevel):
         try:
             import sys
             import importlib.util
-            spec = importlib.util.spec_from_file_location("configure_device", "configure_device.py")
+            spec = importlib.util.spec_from_file_location("configure_device", str(PROJECT_ROOT / "src" / "utils" / "configure_device.py"))
             config_module = importlib.util.module_from_spec(spec)
             sys.modules["configure_device"] = config_module
             spec.loader.exec_module(config_module)
@@ -818,7 +841,7 @@ class LiveReadingsWindow(tk.Toplevel):
             messagebox.showerror("Error", f"Failed to open Device Configuration Tool: {e}")
 
     def edit_config(self):
-        from paths import get_config_dir
+        from src.utils.paths import get_config_dir
         config_path = os.path.join(str(get_config_dir()), "device_config.json")
         if os.path.exists(config_path):
             try:
@@ -831,7 +854,7 @@ class LiveReadingsWindow(tk.Toplevel):
 
     def view_logs(self):
         # Open the most recent dashboard log in logs/
-        logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        logs_dir = str(PROJECT_ROOT / "logs")
         try:
             if not os.path.isdir(logs_dir):
                 self.output.insert(tk.END, f"\nLogs directory {logs_dir} not found.\n")
@@ -860,7 +883,7 @@ class LiveReadingsWindow(tk.Toplevel):
 
     def backup_data(self):
         # Let the user choose any CSV from the consolidated data/csv directory
-        base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "csv")
+        base_dir = str(PROJECT_ROOT / "data" / "csv")
         if not os.path.isdir(base_dir):
             self.output.insert(tk.END, f"\nCSV directory {base_dir} not found.\n")
             return
@@ -878,7 +901,7 @@ class LiveReadingsWindow(tk.Toplevel):
 
     def restore_defaults(self):
         # Restore defaults into externalized config directory
-        from paths import get_config_dir
+        from src.utils.paths import get_config_dir
         config_dir = str(get_config_dir())
         os.makedirs(config_dir, exist_ok=True)
         config_path = os.path.join(config_dir, "device_config.json")

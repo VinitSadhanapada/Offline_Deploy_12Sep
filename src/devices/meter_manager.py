@@ -195,6 +195,56 @@ class MeterManager:
         # Rolling log retention controls
         self.retention_days = self.DEFAULT_RETENTION_DAYS
         self._last_prune_epoch = 0  # epoch seconds of last prune
+        # Month-change tracking for CSV rotation
+        self.current_month = datetime.now().strftime("%Y-%m")
+        self.month_change_callback = None
+
+    def set_month_change_callback(self, callback):
+        """Set callback function to be called when month changes.
+        
+        Args:
+            callback: Function to call when month changes (no arguments)
+        """
+        self.month_change_callback = callback
+
+    def rotate_csv_file(self, new_csv_path):
+        """Rotate to a new CSV file (e.g., when month changes).
+        
+        Args:
+            new_csv_path: Path to the new CSV file
+        """
+        # Close current file
+        try:
+            if self.csv_file and not self.csv_file.closed:
+                self.csv_file.flush()
+                self.csv_file.close()
+        except Exception as e:
+            print(f"Warning: Error closing old CSV file: {e}")
+        
+        # Open new file
+        self.csv_path = new_csv_path
+        try:
+            self.csv_file = open(self.csv_path, "a", newline='')
+            self.csv_writer = csv.writer(self.csv_file)
+            # Write header if file is empty
+            self.csv_file.seek(0, 2)
+            if self.csv_file.tell() == 0:
+                formatted_headers = create_formatted_csv_header(self.parameters)
+                self.csv_writer.writerow(formatted_headers)
+            self.csv_file.seek(0, 2)
+        except Exception as e:
+            print(f"Error opening new CSV file {self.csv_path}: {e}")
+
+    def _check_month_change(self):
+        """Check if the month has changed and trigger callback if set."""
+        current_month = datetime.now().strftime("%Y-%m")
+        if current_month != self.current_month:
+            self.current_month = current_month
+            if self.month_change_callback:
+                try:
+                    self.month_change_callback()
+                except Exception as e:
+                    print(f"Error in month_change_callback: {e}")
 
     def read_all(self, stdscr=None, inter_device_delay=0.1):
         """
@@ -236,6 +286,10 @@ class MeterManager:
             dashboard (print_dashboard2.py).
         """
         self.TotalReadings += 1
+        
+        # Check if month has changed and rotate CSV if needed
+        self._check_month_change()
+        
         for i, meter in enumerate(self.meters):
             regValue = meter.read_data()
             # Ensure CSV file exists and is open before writing

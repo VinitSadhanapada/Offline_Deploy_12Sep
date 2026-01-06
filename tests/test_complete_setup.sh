@@ -221,30 +221,39 @@ fi
 #############################################################################
 test_header "4. Core Python Files"
 
-# Check files in root (backward compat - originals)
-declare -a ROOT_FILES=(
-    "simple_rpi_dashboard.py"
-    "simple_meter_ui.py"
-    "terminal_meter_ui.py"
-    "meter_manager.py"
-    "meter_device.py"
-    "mqtt_client.py"
-    "cloud_sync.py"
-    "configure_device.py"
-    "macros.py"
-    "paths.py"
+# Check files in src/ directory structure
+declare -a DASHBOARD_FILES=(
+    "src/dashboard/simple_rpi_dashboard.py"
+    "src/dashboard/simple_meter_ui.py"
+    "src/dashboard/terminal_meter_ui.py"
 )
 
-for file in "${ROOT_FILES[@]}"; do
+declare -a DEVICE_FILES=(
+    "src/devices/meter_manager.py"
+    "src/devices/meter_device.py"
+)
+
+declare -a UTILS_FILES=(
+    "src/utils/configure_device.py"
+    "src/utils/macros.py"
+    "src/utils/paths.py"
+)
+
+declare -a NETWORK_FILES=(
+    "src/network/cloud_sync.py"
+    "src/network/mqtt_client.py"
+)
+
+for file in "${DASHBOARD_FILES[@]}" "${DEVICE_FILES[@]}" "${UTILS_FILES[@]}" "${NETWORK_FILES[@]}"; do
     check_file "$PROJECT_ROOT/$file"
 done
 
-# Check device drivers in root
-check_file "$PROJECT_ROOT/elmeasure_EN8410.py"
-check_file "$PROJECT_ROOT/elmeasure_iELR300.py"
-check_file "$PROJECT_ROOT/elmeasure_LG5220.py"
-check_file "$PROJECT_ROOT/elmeasure_LG5310.py"
-check_file "$PROJECT_ROOT/elmeasure_LG6400.py"
+# Check device drivers in src/devices/
+check_file "$PROJECT_ROOT/src/devices/elmeasure_EN8410.py"
+check_file "$PROJECT_ROOT/src/devices/elmeasure_iELR300.py"
+check_file "$PROJECT_ROOT/src/devices/elmeasure_LG5220.py"
+check_file "$PROJECT_ROOT/src/devices/elmeasure_LG5310.py"
+check_file "$PROJECT_ROOT/src/devices/elmeasure_LG6400.py"
 
 # Check new organized structure (src/)
 check_dir "$PROJECT_ROOT/src/dashboard"
@@ -257,27 +266,28 @@ check_dir "$PROJECT_ROOT/src/utils"
 #############################################################################
 test_header "5. Configuration Files"
 
-if [ -f "$PROJECT_ROOT/config.json" ]; then
-    test_pass "Config file exists: config.json"
+# Config is now in config/ directory
+if [ -f "$PROJECT_ROOT/config/config.json" ]; then
+    test_pass "Config file exists: config/config.json"
     # Validate JSON
-    if python3 -c "import json; json.load(open('$PROJECT_ROOT/config.json'))" 2>/dev/null; then
-        test_pass "config.json is valid JSON"
+    if python3 -c "import json; json.load(open('$PROJECT_ROOT/config/config.json'))" 2>/dev/null; then
+        test_pass "config/config.json is valid JSON"
     else
-        test_fail "config.json is invalid JSON"
+        test_fail "config/config.json is invalid JSON"
     fi
 else
-    test_warn "config.json not found (will be created by setup)"
+    test_warn "config/config.json not found (will be created by setup)"
 fi
 
-if [ -f "$PROJECT_ROOT/device_config.json" ]; then
-    test_pass "Device config exists: device_config.json"
-    if python3 -c "import json; json.load(open('$PROJECT_ROOT/device_config.json'))" 2>/dev/null; then
-        test_pass "device_config.json is valid JSON"
+if [ -f "$PROJECT_ROOT/config/device_config.json" ]; then
+    test_pass "Device config exists: config/device_config.json"
+    if python3 -c "import json; json.load(open('$PROJECT_ROOT/config/device_config.json'))" 2>/dev/null; then
+        test_pass "config/device_config.json is valid JSON"
     else
-        test_fail "device_config.json is invalid JSON"
+        test_fail "config/device_config.json is invalid JSON"
     fi
 else
-    test_warn "device_config.json not found (will be created by setup)"
+    test_warn "config/device_config.json not found (will be created by setup)"
 fi
 
 #############################################################################
@@ -286,7 +296,7 @@ fi
 test_header "6. Documentation"
 
 check_file "$PROJECT_ROOT/README.md"
-check_file "$PROJECT_ROOT/PROJECT_REORGANIZATION_PLAN.md"
+check_file "$PROJECT_ROOT/docs/PROJECT_REORGANIZATION_PLAN.md"
 check_dir "$PROJECT_ROOT/docs/user"
 check_dir "$PROJECT_ROOT/docs/developer"
 check_file "$PROJECT_ROOT/docs/user/QUICKSTART.md"
@@ -470,24 +480,24 @@ fi
 #############################################################################
 test_header "14. Terminal UI Validation"
 
-check_file "$PROJECT_ROOT/terminal_meter_ui.py"
+check_file "$PROJECT_ROOT/src/dashboard/terminal_meter_ui.py"
 
 # Syntax check
-if python3 -m py_compile "$PROJECT_ROOT/terminal_meter_ui.py" 2>/dev/null; then
+if python3 -m py_compile "$PROJECT_ROOT/src/dashboard/terminal_meter_ui.py" 2>/dev/null; then
     test_pass "terminal_meter_ui.py syntax is valid"
 else
     test_fail "terminal_meter_ui.py has syntax errors"
 fi
 
 # Check terminal_ui.sh wrapper
-if [ -f "$PROJECT_ROOT/terminal_ui.sh" ]; then
-    if grep -q "terminal_meter_ui.py" "$PROJECT_ROOT/terminal_ui.sh"; then
+if [ -f "$PROJECT_ROOT/scripts/launchers/terminal_ui.sh" ]; then
+    if grep -q "terminal_meter_ui.py" "$PROJECT_ROOT/scripts/launchers/terminal_ui.sh"; then
         test_pass "terminal_ui.sh wrapper is correct"
     else
         test_fail "terminal_ui.sh wrapper incorrect"
     fi
 else
-    test_fail "terminal_ui.sh not found"
+    test_fail "scripts/launchers/terminal_ui.sh not found"
 fi
 
 #############################################################################
@@ -495,9 +505,9 @@ fi
 #############################################################################
 test_header "15. Simple Meter UI Validation"
 
-check_file "$PROJECT_ROOT/simple_meter_ui.py"
+check_file "$PROJECT_ROOT/src/dashboard/simple_meter_ui.py"
 
-if python3 -m py_compile "$PROJECT_ROOT/simple_meter_ui.py" 2>/dev/null; then
+if python3 -m py_compile "$PROJECT_ROOT/src/dashboard/simple_meter_ui.py" 2>/dev/null; then
     test_pass "simple_meter_ui.py syntax is valid"
 else
     test_fail "simple_meter_ui.py has syntax errors"
@@ -508,9 +518,9 @@ fi
 #############################################################################
 test_header "16. Dashboard Validation"
 
-check_file "$PROJECT_ROOT/simple_rpi_dashboard.py"
+check_file "$PROJECT_ROOT/src/dashboard/simple_rpi_dashboard.py"
 
-if python3 -m py_compile "$PROJECT_ROOT/simple_rpi_dashboard.py" 2>/dev/null; then
+if python3 -m py_compile "$PROJECT_ROOT/src/dashboard/simple_rpi_dashboard.py" 2>/dev/null; then
     test_pass "simple_rpi_dashboard.py syntax is valid"
 else
     test_fail "simple_rpi_dashboard.py has syntax errors"
@@ -564,22 +574,24 @@ test_header "18. File Permissions"
 SCRIPT_COUNT=0
 EXEC_COUNT=0
 
-for script in "$PROJECT_ROOT/setup_launchers/"*.sh; do
-    ((SCRIPT_COUNT++))
-    if [ -x "$script" ]; then
-        ((EXEC_COUNT++))
+for script in "$PROJECT_ROOT/scripts/setup/"*.sh "$PROJECT_ROOT/scripts/launchers/"*.sh; do
+    if [ -f "$script" ]; then
+        ((SCRIPT_COUNT++))
+        if [ -x "$script" ]; then
+            ((EXEC_COUNT++))
+        fi
     fi
 done
 
-if [ $EXEC_COUNT -eq $SCRIPT_COUNT ]; then
-    test_pass "All $SCRIPT_COUNT scripts in setup_launchers/ are executable"
+if [ $EXEC_COUNT -eq $SCRIPT_COUNT ] && [ $SCRIPT_COUNT -gt 0 ]; then
+    test_pass "All $SCRIPT_COUNT scripts in scripts/ are executable"
 else
     test_fail "Only $EXEC_COUNT of $SCRIPT_COUNT scripts are executable"
 fi
 
 # Check Python files
 for pyfile in terminal_meter_ui.py simple_meter_ui.py simple_rpi_dashboard.py; do
-    if [ -r "$PROJECT_ROOT/$pyfile" ]; then
+    if [ -r "$PROJECT_ROOT/src/dashboard/$pyfile" ]; then
         test_pass "Python file readable: $pyfile"
     else
         test_fail "Python file not readable: $pyfile"

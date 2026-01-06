@@ -101,10 +101,10 @@ for script in "${SCRIPTS[@]}"; do
     fi
 done
 
-# Make Python files executable
-chmod +x "$PROJECT_ROOT/terminal_meter_ui.py" 2>/dev/null || true
-chmod +x "$PROJECT_ROOT/simple_meter_ui.py" 2>/dev/null || true
-chmod +x "$PROJECT_ROOT/simple_rpi_dashboard.py" 2>/dev/null || true
+# Make Python files executable (now in src/dashboard/)
+chmod +x "$PROJECT_ROOT/src/dashboard/terminal_meter_ui.py" 2>/dev/null || true
+chmod +x "$PROJECT_ROOT/src/dashboard/simple_meter_ui.py" 2>/dev/null || true
+chmod +x "$PROJECT_ROOT/src/dashboard/simple_rpi_dashboard.py" 2>/dev/null || true
 
 STEPS_COMPLETED=$((STEPS_COMPLETED + 1))
 log_success "Step 1 complete: Scripts are executable"
@@ -314,7 +314,7 @@ echo "   - See: QUICKSTART_SSH_UI.md"
 echo ""
 echo "3. ${CYAN}Desktop Access:${NC}"
 echo "   - Double-click: SimpleMeterUI_Admin.desktop"
-echo "   - Or run: python3 simple_meter_ui.py"
+echo "   - Or run: python3 src/dashboard/simple_meter_ui.py"
 echo ""
 echo "4. ${CYAN}Reboot recommended:${NC}"
 echo "   - sudo reboot"

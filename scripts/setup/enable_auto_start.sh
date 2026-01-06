@@ -53,19 +53,22 @@ fi
 echo "[INFO] Primary service directory set to: ${PRIMARY_DIR}"
 CONFIG_DIR="${METER_CONFIG_DIR:-$HOME/meter_config}"
 
+# Dashboard script is now in src/dashboard/
+DASHBOARD_SCRIPT="$SCRIPT_DIR/src/dashboard/simple_rpi_dashboard.py"
+
 # 1) Create/repair the venv and app directories as the target (non-root) user so
 #    runtime directories (logs, data) are owned by the service user.
-run_and_log sudo -u "$TARGET_USER" -H "$PY_EXEC" "$SCRIPT_DIR/simple_rpi_dashboard.py" --setup || {
+run_and_log sudo -u "$TARGET_USER" -H "$PY_EXEC" "$DASHBOARD_SCRIPT" --setup || {
 	echo "[ERROR] Env setup failed. Try manually as ${TARGET_USER}:" | tee -a "$LOGFILE"
-	echo "        $PY_EXEC $SCRIPT_DIR/simple_rpi_dashboard.py --setup" | tee -a "$LOGFILE"
+	echo "        $PY_EXEC $DASHBOARD_SCRIPT --setup" | tee -a "$LOGFILE"
 	exit 1
 }
 
 # 2) Create and enable the systemd service (requires root)
 echo "[INFO] Creating/enabling meter-dashboard systemd service" | tee -a "$LOGFILE"
-run_and_log "$PY_EXEC" simple_rpi_dashboard.py --create-service || {
+run_and_log "$PY_EXEC" "$DASHBOARD_SCRIPT" --create-service || {
 	echo "[ERROR] Failed to create service. You can run manually:" | tee -a "$LOGFILE"
-	echo "        sudo $PY_EXEC $SCRIPT_DIR/simple_rpi_dashboard.py --create-service" | tee -a "$LOGFILE"
+	echo "        sudo $PY_EXEC $DASHBOARD_SCRIPT --create-service" | tee -a "$LOGFILE"
 	exit 1
 }
 
@@ -96,6 +99,12 @@ if [[ -z "${CLOUD_INTERVAL_MIN}" ]]; then CLOUD_INTERVAL_MIN=10; fi
 if [[ -z "${CLOUD_INTERVAL_SEC}" ]]; then CLOUD_INTERVAL_SEC=""; fi
 
 echo "[INFO] Installing USB auto-copy service"
+# USB copy script is now in scripts/system/ or src/services/
+USB_COPY_SCRIPT="${SCRIPT_DIR}/scripts/system/usb_csv_auto_copy.py"
+if [[ ! -f "$USB_COPY_SCRIPT" ]]; then
+    USB_COPY_SCRIPT="${SCRIPT_DIR}/src/services/usb_csv_auto_copy.py"
+fi
+
 sudo tee /etc/systemd/system/usb_csv_auto_copy.service >/dev/null <<UNIT
 [Unit]
 Description=USB CSV Auto-Copy Service
@@ -104,7 +113,7 @@ After=multi-user.target
 [Service]
 Type=simple
 WorkingDirectory=${SCRIPT_DIR}
-ExecStart=/usr/bin/python3 ${PRIMARY_DIR}/usb_csv_auto_copy.py --daemon
+ExecStart=/usr/bin/python3 ${USB_COPY_SCRIPT} --daemon
 Restart=on-failure
 RestartSec=5
 Nice=10
@@ -115,6 +124,9 @@ WantedBy=multi-user.target
 UNIT
 
 echo "[INFO] Installing Cloud Sync service and timer"
+# Cloud sync script is now in src/network/
+CLOUD_SYNC_SCRIPT="${SCRIPT_DIR}/src/network/cloud_sync.py"
+
 sudo tee /etc/systemd/system/cloud_sync.service >/dev/null <<UNIT
 [Unit]
 Description=Cloud Sync (oneshot) for CSV
@@ -124,7 +136,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=${SCRIPT_DIR}
-ExecStart=${PY_EXEC} ${SCRIPT_DIR}/cloud_sync.py --run-once
+ExecStart=${PY_EXEC} ${CLOUD_SYNC_SCRIPT} --run-once
 
 [Install]
 WantedBy=multi-user.target

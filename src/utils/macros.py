@@ -27,11 +27,11 @@ Date: 21/07/25
 Version: 1.0
 """
 
-import elmeasure_LG6400 as LG6400
-import elmeasure_LG5220 as LG5220
-import elmeasure_LG5310 as LG5310
-import elmeasure_EN8410 as EN8410
-import elmeasure_iELR300 as ELR300
+from src.devices import elmeasure_LG6400 as LG6400
+from src.devices import elmeasure_LG5220 as LG5220
+from src.devices import elmeasure_LG5310 as LG5310
+from src.devices import elmeasure_EN8410 as EN8410
+from src.devices import elmeasure_iELR300 as ELR300
 
 # Device Types
 # Device Type Constants

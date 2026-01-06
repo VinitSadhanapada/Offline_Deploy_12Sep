@@ -40,8 +40,8 @@ echo "Press Q to quit at any time"
 echo ""
 sleep 1
 
-# Run the UI
-python3 terminal_meter_ui.py
+# Run the UI (now in src/dashboard/)
+python3 src/dashboard/terminal_meter_ui.py
 
 # Exit status
 EXIT_CODE=$?

@@ -12,8 +12,28 @@ import csv
 import time
 import subprocess
 import json
+import re
 from datetime import datetime
 from pathlib import Path
+
+
+def _find_project_root() -> Path:
+    """Find the project root directory by looking for key markers."""
+    script_path = Path(__file__).resolve()
+    
+    for parent in [script_path.parent, *script_path.parents]:
+        if (parent / "src").is_dir() and (parent / "config").is_dir():
+            return parent
+        if (parent / "venv").is_dir() and (parent / "src").is_dir():
+            return parent
+        if parent == Path.home() or parent == Path("/"):
+            break
+    
+    # Fallback: assume script is in src/dashboard/
+    return script_path.parent.parent.parent
+
+
+PROJECT_ROOT = _find_project_root()
 
 
 class TerminalMeterUI:
@@ -24,8 +44,14 @@ class TerminalMeterUI:
         self.current_menu = "main"
         self.selected_index = 0
         self.running = True
-        self.csv_dir = Path(__file__).parent / "data" / "csv"
-        self.logs_dir = Path(__file__).parent / "logs"
+        self.csv_dir = PROJECT_ROOT / "data" / "csv"
+        self.logs_dir = PROJECT_ROOT / "logs"
+        
+        # Device configuration path
+        from src.utils.paths import get_config_dir
+        self.config_dir = get_config_dir()
+        self.device_config_path = self.config_dir / "device_config.json"
+        self.supported_models = ["LG6400", "LG+5220", "LG+5310", "EN8410", "iELR300"]
         
         # Setup colors
         curses.start_color()
@@ -90,11 +116,12 @@ class TerminalMeterUI:
             ("2", "Export CSV Data", "Copy CSV files for download"),
             ("3", "View Latest Readings", "Show last readings from CSV"),
             ("4", "System Status", "Check disk, services, and logs"),
-            ("5", "View Configuration", "Display current config files"),
-            ("6", "Start Manual Reading", "Run one-time meter reading"),
-            ("7", "View Logs", "Display recent log entries"),
-            ("8", "Help & Info", "SSH download instructions"),
-            ("9", "WiFi AP Control", "Enable/disable WiFi Access Point"),
+            ("5", "Configure Devices", "Add/edit/delete meter devices"),
+            ("6", "View Configuration", "Display current config files"),
+            ("7", "Service Control", "Start/stop/restart dashboard service"),
+            ("8", "View Logs", "Display recent log entries"),
+            ("9", "Help & Info", "SSH download instructions"),
+            ("0", "WiFi AP Control", "Enable/disable WiFi Access Point"),
             ("Q", "Quit", "Exit application"),
         ]
         
@@ -226,7 +253,7 @@ class TerminalMeterUI:
             self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
             
             # Create export directory
-            export_dir = Path(__file__).parent / "exports"
+            export_dir = PROJECT_ROOT / "exports"
             export_dir.mkdir(exist_ok=True)
             
             y_pos = 5
@@ -393,9 +420,17 @@ class TerminalMeterUI:
             
             y_pos = 5
             
-            # Load config.json
-            config_file = Path(__file__).parent / "config.json"
-            if config_file.exists():
+            # Load config.json - check multiple locations
+            config_file = None
+            for candidate in [
+                PROJECT_ROOT / "config" / "config.json",
+                PROJECT_ROOT / "config.json",
+            ]:
+                if candidate.exists():
+                    config_file = candidate
+                    break
+            
+            if config_file and config_file.exists():
                 try:
                     with open(config_file, 'r') as f:
                         config = json.load(f)
@@ -425,7 +460,7 @@ class TerminalMeterUI:
             
             # Load device_config.json
             try:
-                from paths import get_config_dir
+                from src.utils.paths import get_config_dir
                 device_config_file = Path(get_config_dir()) / "device_config.json"
                 
                 if device_config_file.exists():
@@ -531,7 +566,7 @@ class TerminalMeterUI:
         self.stdscr.refresh()
     
     def start_manual_reading(self):
-        """Start a manual meter reading session."""
+        """Control the dashboard service (start/stop/restart)."""
         self.stdscr.clear()
         self.draw_header()
         
@@ -539,60 +574,142 @@ class TerminalMeterUI:
         
         try:
             self.stdscr.attron(curses.A_BOLD | curses.color_pair(1))
-            self.stdscr.addstr(3, 2, "MANUAL READING SESSION")
+            self.stdscr.addstr(3, 2, "DASHBOARD SERVICE CONTROL")
             self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
             
             y_pos = 5
-            self.stdscr.addstr(y_pos, 2, "Starting one-time meter reading...")
+            
+            # Check service status first
+            self.stdscr.addstr(y_pos, 2, "Checking service status...")
             self.stdscr.refresh()
-            y_pos += 2
             
-            # Run dashboard with --run flag
-            dashboard_path = Path(__file__).parent / "simple_rpi_dashboard.py"
-            
-            if dashboard_path.exists():
-                self.stdscr.attron(curses.color_pair(3))
-                self.stdscr.addstr(y_pos, 2, "Running: python3 simple_rpi_dashboard.py --run")
-                self.stdscr.attroff(curses.color_pair(3))
-                y_pos += 1
-                self.stdscr.refresh()
+            try:
+                result = subprocess.run(
+                    ['systemctl', 'is-active', 'meter-dashboard'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
                 
-                try:
-                    # Run in background and show result
+                is_active = result.returncode == 0 and 'active' in result.stdout.lower()
+                
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 2, "Current status: ")
+                if is_active:
+                    self.stdscr.attron(curses.color_pair(2))
+                    self.stdscr.addstr("RUNNING")
+                    self.stdscr.attroff(curses.color_pair(2))
+                else:
+                    self.stdscr.attron(curses.color_pair(4))
+                    self.stdscr.addstr("STOPPED")
+                    self.stdscr.attroff(curses.color_pair(4))
+                
+                y_pos += 3
+                self.stdscr.addstr(y_pos, 2, "Options:")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[1] Start service")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[2] Stop service")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[3] Restart service")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[4] View service status (detailed)")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[B] Back to main menu")
+                
+                y_pos += 2
+                self.stdscr.attron(curses.color_pair(3))
+                self.stdscr.addstr(y_pos, 2, "Enter choice: ")
+                self.stdscr.attroff(curses.color_pair(3))
+                
+                curses.echo()
+                curses.curs_set(1)
+                choice = self.stdscr.getstr(y_pos, 17, 1).decode('utf-8').lower()
+                curses.noecho()
+                curses.curs_set(0)
+                
+                y_pos += 2
+                
+                if choice == '1':
+                    self.stdscr.addstr(y_pos, 2, "Starting service...")
+                    self.stdscr.refresh()
                     result = subprocess.run(
-                        ['python3', str(dashboard_path), '--run'],
+                        ['sudo', 'systemctl', 'start', 'meter-dashboard'],
                         capture_output=True,
                         text=True,
-                        timeout=30
+                        timeout=10
                     )
-                    
                     y_pos += 1
                     if result.returncode == 0:
                         self.stdscr.attron(curses.color_pair(2))
-                        self.stdscr.addstr(y_pos, 2, "✓ Reading completed successfully")
+                        self.stdscr.addstr(y_pos, 2, "Service started")
                         self.stdscr.attroff(curses.color_pair(2))
                     else:
                         self.stdscr.attron(curses.color_pair(4))
-                        self.stdscr.addstr(y_pos, 2, f"✗ Failed with code {result.returncode}")
+                        self.stdscr.addstr(y_pos, 2, f"Failed: {result.stderr[:50]}")
                         self.stdscr.attroff(curses.color_pair(4))
-                        y_pos += 1
-                        if result.stderr:
-                            for line in result.stderr.split('\n')[:5]:
-                                if y_pos < height - 3:
-                                    self.stdscr.addstr(y_pos, 4, line[:width-6])
-                                    y_pos += 1
+                        
+                elif choice == '2':
+                    self.stdscr.addstr(y_pos, 2, "Stopping service...")
+                    self.stdscr.refresh()
+                    result = subprocess.run(
+                        ['sudo', 'systemctl', 'stop', 'meter-dashboard'],
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    y_pos += 1
+                    if result.returncode == 0:
+                        self.stdscr.attron(curses.color_pair(2))
+                        self.stdscr.addstr(y_pos, 2, "Service stopped")
+                        self.stdscr.attroff(curses.color_pair(2))
+                    else:
+                        self.stdscr.attron(curses.color_pair(4))
+                        self.stdscr.addstr(y_pos, 2, f"Failed: {result.stderr[:50]}")
+                        self.stdscr.attroff(curses.color_pair(4))
+                        
+                elif choice == '3':
+                    self.stdscr.addstr(y_pos, 2, "Restarting service...")
+                    self.stdscr.refresh()
+                    result = subprocess.run(
+                        ['sudo', 'systemctl', 'restart', 'meter-dashboard'],
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    y_pos += 1
+                    if result.returncode == 0:
+                        self.stdscr.attron(curses.color_pair(2))
+                        self.stdscr.addstr(y_pos, 2, "Service restarted")
+                        self.stdscr.attroff(curses.color_pair(2))
+                    else:
+                        self.stdscr.attron(curses.color_pair(4))
+                        self.stdscr.addstr(y_pos, 2, f"Failed: {result.stderr[:50]}")
+                        self.stdscr.attroff(curses.color_pair(4))
+                        
+                elif choice == '4':
+                    self.stdscr.addstr(y_pos, 2, "Fetching detailed status...")
+                    self.stdscr.refresh()
+                    result = subprocess.run(
+                        ['systemctl', 'status', 'meter-dashboard'],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    y_pos += 2
+                    lines = result.stdout.split('\n')[:8]
+                    for line in lines:
+                        if y_pos < height - 4:
+                            self.stdscr.addstr(y_pos, 2, line[:width-4])
+                            y_pos += 1
                 
-                except subprocess.TimeoutExpired:
-                    self.stdscr.attron(curses.color_pair(4))
-                    self.stdscr.addstr(y_pos, 2, "✗ Reading timed out (30s)")
-                    self.stdscr.attroff(curses.color_pair(4))
-                except Exception as e:
-                    self.stdscr.attron(curses.color_pair(4))
-                    self.stdscr.addstr(y_pos, 2, f"Error: {str(e)[:width-10]}")
-                    self.stdscr.attroff(curses.color_pair(4))
-            else:
+            except subprocess.TimeoutExpired:
                 self.stdscr.attron(curses.color_pair(4))
-                self.stdscr.addstr(y_pos, 2, "Dashboard script not found!")
+                self.stdscr.addstr(y_pos, 2, "Command timed out")
+                self.stdscr.attroff(curses.color_pair(4))
+            except Exception as e:
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(y_pos, 2, f"Error: {str(e)[:width-10]}")
                 self.stdscr.attroff(curses.color_pair(4))
         
         except curses.error:
@@ -820,6 +937,252 @@ class TerminalMeterUI:
         self.draw_footer("view")
         self.stdscr.refresh()
     
+    def configure_devices(self):
+        """Configure meter devices (add/edit/delete)."""
+        self.stdscr.clear()
+        self.draw_header()
+        height, width = self.stdscr.getmaxyx()
+        
+        # Load device config
+        devices = self._load_device_config()
+        
+        while True:
+            self.stdscr.clear()
+            self.draw_header()
+            
+            try:
+                self.stdscr.attron(curses.A_BOLD | curses.color_pair(1))
+                self.stdscr.addstr(3, 2, "DEVICE CONFIGURATION")
+                self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
+                
+                y_pos = 5
+                if devices:
+                    self.stdscr.addstr(y_pos, 2, "Current Devices:")
+                    y_pos += 1
+                    for i, d in enumerate(devices):
+                        if y_pos >= height - 12:
+                            break
+                        name = d.get('name', '')
+                        addr = d.get('address', '')
+                        model = d.get('model', '')
+                        loc = d.get('location', '')
+                        line = f"  [{i+1}] {name} (Addr:{addr}, Model:{model}, Location:{loc})"
+                        self.stdscr.addstr(y_pos, 2, line[:width-4])
+                        y_pos += 1
+                else:
+                    self.stdscr.attron(curses.color_pair(4))
+                    self.stdscr.addstr(y_pos, 2, "No devices configured")
+                    self.stdscr.attroff(curses.color_pair(4))
+                    y_pos += 1
+                
+                y_pos += 2
+                self.stdscr.addstr(y_pos, 2, "Options:")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[A] Add new device")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[E] Edit device")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[D] Delete device")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[S] Save and exit")
+                y_pos += 1
+                self.stdscr.addstr(y_pos, 4, "[B] Back (discard changes)")
+                
+                y_pos += 2
+                self.stdscr.attron(curses.color_pair(3))
+                self.stdscr.addstr(y_pos, 2, "Enter choice: ")
+                self.stdscr.attroff(curses.color_pair(3))
+                
+                curses.echo()
+                curses.curs_set(1)
+                choice = self.stdscr.getstr(y_pos, 17, 1).decode('utf-8').lower()
+                curses.noecho()
+                curses.curs_set(0)
+                
+                if choice == 'a':
+                    device = self._prompt_device()
+                    if device:
+                        devices.append(device)
+                elif choice == 'e':
+                    if not devices:
+                        self.stdscr.attron(curses.color_pair(4))
+                        self.stdscr.addstr(y_pos + 2, 2, "No devices to edit")
+                        self.stdscr.attroff(curses.color_pair(4))
+                        time.sleep(1)
+                        continue
+                    self.stdscr.addstr(y_pos + 2, 2, "Enter device number to edit: ")
+                    curses.echo()
+                    curses.curs_set(1)
+                    num_str = self.stdscr.getstr(y_pos + 2, 32, 2).decode('utf-8')
+                    curses.noecho()
+                    curses.curs_set(0)
+                    try:
+                        idx = int(num_str) - 1
+                        if 0 <= idx < len(devices):
+                            updated = self._prompt_device(devices[idx])
+                            if updated:
+                                devices[idx] = updated
+                    except:
+                        pass
+                elif choice == 'd':
+                    if not devices:
+                        self.stdscr.attron(curses.color_pair(4))
+                        self.stdscr.addstr(y_pos + 2, 2, "No devices to delete")
+                        self.stdscr.attroff(curses.color_pair(4))
+                        time.sleep(1)
+                        continue
+                    self.stdscr.addstr(y_pos + 2, 2, "Enter device number to delete: ")
+                    curses.echo()
+                    curses.curs_set(1)
+                    num_str = self.stdscr.getstr(y_pos + 2, 35, 2).decode('utf-8')
+                    curses.noecho()
+                    curses.curs_set(0)
+                    try:
+                        idx = int(num_str) - 1
+                        if 0 <= idx < len(devices):
+                            devices.pop(idx)
+                    except:
+                        pass
+                elif choice == 's':
+                    self._save_device_config(devices)
+                    self.stdscr.attron(curses.color_pair(2))
+                    self.stdscr.addstr(y_pos + 2, 2, "Configuration saved!")
+                    self.stdscr.attroff(curses.color_pair(2))
+                    time.sleep(1)
+                    break
+                elif choice == 'b':
+                    break
+                    
+            except curses.error:
+                pass
+        
+        self.draw_footer("view")
+        self.stdscr.refresh()
+    
+    def _load_device_config(self):
+        """Load device configuration from JSON file."""
+        if not self.device_config_path.exists():
+            return []
+        
+        try:
+            with open(self.device_config_path, 'r') as f:
+                content = f.read()
+                # Strip comments
+                content = re.sub(r"//.*", "", content)
+                content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
+                data = json.loads(content)
+            
+            # Normalize data structure
+            if isinstance(data, list):
+                devices = data
+            elif isinstance(data, dict):
+                for key in ("devices", "meters", "items"):
+                    if key in data and isinstance(data[key], list):
+                        devices = data[key]
+                        break
+                else:
+                    devices = []
+            else:
+                devices = []
+            
+            # Normalize device fields
+            normalized = []
+            for d in devices:
+                if not isinstance(d, dict):
+                    continue
+                normalized.append({
+                    'name': d.get('name') or d.get('meter_name') or d.get('device_name') or '',
+                    'address': d.get('address') or d.get('meter_address') or d.get('device_id') or 1,
+                    'model': d.get('model') or d.get('meter_model') or d.get('type') or '',
+                    'location': d.get('location') or d.get('site') or d.get('plant') or ''
+                })
+            return normalized
+        except Exception as e:
+            return []
+    
+    def _save_device_config(self, devices):
+        """Save device configuration to JSON file."""
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        with open(self.device_config_path, 'w') as f:
+            json.dump(devices, f, indent=2)
+            f.write('\n')
+    
+    def _prompt_device(self, existing=None):
+        """Prompt for device details."""
+        height, width = self.stdscr.getmaxyx()
+        y_start = height - 10
+        
+        try:
+            # Meter name
+            self.stdscr.addstr(y_start, 2, "Meter Name: ")
+            curses.echo()
+            curses.curs_set(1)
+            if existing:
+                self.stdscr.addstr(existing.get('name', ''))
+            name = self.stdscr.getstr(y_start, 15, 30).decode('utf-8').strip()
+            if not name and existing:
+                name = existing.get('name', '')
+            if not name:
+                curses.noecho()
+                curses.curs_set(0)
+                return None
+            
+            # Address
+            self.stdscr.addstr(y_start + 1, 2, "Modbus Address: ")
+            if existing:
+                self.stdscr.addstr(str(existing.get('address', '')))
+            addr_str = self.stdscr.getstr(y_start + 1, 18, 5).decode('utf-8').strip()
+            if not addr_str and existing:
+                addr_str = str(existing.get('address', ''))
+            try:
+                address = int(addr_str)
+            except:
+                curses.noecho()
+                curses.curs_set(0)
+                return None
+            
+            # Model
+            self.stdscr.addstr(y_start + 2, 2, f"Model ({', '.join(self.supported_models[:3])}...): ")
+            if existing:
+                self.stdscr.addstr(existing.get('model', ''))
+            model = self.stdscr.getstr(y_start + 2, 55, 15).decode('utf-8').strip()
+            if not model and existing:
+                model = existing.get('model', '')
+            if model not in self.supported_models:
+                curses.noecho()
+                curses.curs_set(0)
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(y_start + 4, 2, "Invalid model!")
+                self.stdscr.attroff(curses.color_pair(4))
+                time.sleep(1)
+                return None
+            
+            # Location
+            self.stdscr.addstr(y_start + 3, 2, "Location: ")
+            if existing:
+                self.stdscr.addstr(existing.get('location', ''))
+            location = self.stdscr.getstr(y_start + 3, 13, 30).decode('utf-8').strip()
+            if not location and existing:
+                location = existing.get('location', '')
+            if not location:
+                curses.noecho()
+                curses.curs_set(0)
+                return None
+            
+            curses.noecho()
+            curses.curs_set(0)
+            
+            return {
+                'name': name,
+                'address': address,
+                'model': model,
+                'location': location
+            }
+        except Exception:
+            curses.noecho()
+            curses.curs_set(0)
+            return None
+    
     def run(self):
         """Main application loop."""
         while self.running:
@@ -840,7 +1203,7 @@ class TerminalMeterUI:
                     self.selected_index = max(0, self.selected_index - 1)
                 
                 elif key == curses.KEY_DOWN:
-                    self.selected_index = min(9, self.selected_index + 1)
+                    self.selected_index = min(10, self.selected_index + 1)
                 
                 elif key in [curses.KEY_ENTER, ord('\n'), ord('\r')]:
                     # Execute selected option
@@ -856,28 +1219,33 @@ class TerminalMeterUI:
                     elif self.selected_index == 3:  # System Status
                         self.show_system_status()
                         self.wait_for_key()
-                    elif self.selected_index == 4:  # Configuration
+                    elif self.selected_index == 4:  # Configure Devices
+                        self.configure_devices()
+                    elif self.selected_index == 5:  # View Configuration
                         self.show_configuration()
                         self.wait_for_key()
-                    elif self.selected_index == 5:  # Manual Reading
+                    elif self.selected_index == 6:  # Service Control
                         self.start_manual_reading()
                         self.wait_for_key()
-                    elif self.selected_index == 6:  # View Logs
+                    elif self.selected_index == 7:  # View Logs
                         self.view_logs()
                         self.wait_for_key()
-                    elif self.selected_index == 7:  # Help
+                    elif self.selected_index == 8:  # Help
                         self.show_help()
                         self.wait_for_key()
-                    elif self.selected_index == 8:  # WiFi AP Control
+                    elif self.selected_index == 9:  # WiFi AP Control
                         self.toggle_wifi_ap()
                         self.wait_for_key()
-                    elif self.selected_index == 9:  # Quit
+                    elif self.selected_index == 10:  # Quit
                         self.running = False
                 
                 # Direct number key selection
                 elif key in [ord('1'), ord('2'), ord('3'), ord('4'), ord('5'), 
-                           ord('6'), ord('7'), ord('8'), ord('9')]:
-                    self.selected_index = int(chr(key)) - 1
+                           ord('6'), ord('7'), ord('8'), ord('9'), ord('0')]:
+                    if key == ord('0'):
+                        self.selected_index = 9
+                    else:
+                        self.selected_index = int(chr(key)) - 1
             
             except KeyboardInterrupt:
                 self.running = False

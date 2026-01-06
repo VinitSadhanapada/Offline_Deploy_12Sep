@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 import datetime
 import random
-import elmeasure_LG6400 as LG6400
-import elmeasure_LG5220 as LG5220
-import elmeasure_LG5310 as LG5310
-import elmeasure_EN8410 as EN8410
-import elmeasure_iELR300 as ELR300
+from src.devices import elmeasure_LG6400 as LG6400
+from src.devices import elmeasure_LG5220 as LG5220
+from src.devices import elmeasure_LG5310 as LG5310
+from src.devices import elmeasure_EN8410 as EN8410
+from src.devices import elmeasure_iELR300 as ELR300
 
-from macros import DEV_ELM_LG6400, DEV_ELM_LG5310, DEV_ELM_LG5220, DEV_ELM_EN8400, DEV_ELM_EN8100, DEV_ELM_EN8410, DEV_ELM_ELR300
-from macros import PARAMETERS
+from src.utils.macros import DEV_ELM_LG6400, DEV_ELM_LG5310, DEV_ELM_LG5220, DEV_ELM_EN8400, DEV_ELM_EN8100, DEV_ELM_EN8410, DEV_ELM_ELR300
+from src.utils.macros import PARAMETERS
 
 """
 MeterDevice Module for Individual Meter Communication.

@@ -31,21 +31,48 @@ from pathlib import Path
 from datetime import datetime
 import socket
 
-# Import shared venv utilities (try local, then parent repo)
+
+def _find_project_root() -> Path:
+    """Find the project root directory by looking for key markers.
+    
+    Looks for: src/ directory, config/ directory, or venv/ directory.
+    Walks up from this script's location to find the project root.
+    """
+    script_path = Path(__file__).resolve()
+    
+    # Walk up directories looking for project markers
+    for parent in [script_path.parent, *script_path.parents]:
+        # Check for project structure markers
+        if (parent / "src").is_dir() and (parent / "config").is_dir():
+            return parent
+        if (parent / "venv").is_dir() and (parent / "src").is_dir():
+            return parent
+        if (parent / "config" / "config.json").exists():
+            return parent
+        # Stop at home directory or root
+        if parent == Path.home() or parent == Path("/"):
+            break
+    
+    # Fallback: assume script is in src/dashboard/, so go up 2 levels
+    return script_path.parent.parent.parent
+
+
+# Compute project root once at module load
+PROJECT_ROOT = _find_project_root()
+
+# Import shared venv utilities from src
 try:
-    from venv_utils import (
+    from src.utils.venv_utils import (
         setup_complete_venv_environment,
         setup_venv_with_pip,
         install_packages_in_venv,
     )
 except Exception:
-    # If running from offline-setup-12Sep where venv_utils lives in parent, try that
+    # Fallback: Add project root to path if needed
     import sys
-    from pathlib import Path as _P
-    parent = _P(__file__).resolve().parent.parent
-    if str(parent) not in sys.path:
-        sys.path.insert(0, str(parent))
-    from venv_utils import (
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    from src.utils.venv_utils import (
         setup_complete_venv_environment,
         setup_venv_with_pip,
         install_packages_in_venv,
@@ -59,9 +86,14 @@ def auto_use_venv_if_needed():
     2. venv exists
     3. We're trying to run the dashboard (--run)
     """
-    script_dir = Path(__file__).parent.absolute()
-    venv_python = script_dir / "venv" / "bin" / "python"
-
+    # Use PROJECT_ROOT to find venv, not script_dir
+    venv_python = PROJECT_ROOT / "venv" / "bin" / "python"
+    venv313_python = PROJECT_ROOT / "venv313" / "bin" / "python"
+    
+    # Prefer venv313 if it exists, otherwise use venv
+    if venv313_python.exists():
+        venv_python = venv313_python
+    
     # Check if we're already in venv by checking sys.executable
     if venv_python.exists() and str(venv_python) != sys.executable:
         # Check if this is a run command
@@ -211,17 +243,21 @@ _DEFAULT_DEVICES = [
     {"name": "Suryakund UPS", "address": 2, "model": "LG+5220"},
 ]
 
-from paths import get_config_dir
+from src.utils.paths import get_config_dir
 
 # Prefer configuration files at environment or home-based meter_config
 _CONFIG_DIR = get_config_dir()
 _SCRIPT_DIR = Path(__file__).parent.absolute()
 _config_candidates = [
     _CONFIG_DIR / "config.json",
+    PROJECT_ROOT / "config" / "config.json",  # New location in project structure
+    PROJECT_ROOT / "config.json",              # Legacy root location
     _SCRIPT_DIR / "config.json",
 ]
 _device_candidates = [
     _CONFIG_DIR / "device_config.json",
+    PROJECT_ROOT / "config" / "device_config.json",  # New location in project structure
+    PROJECT_ROOT / "device_config.json",              # Legacy root location
     _SCRIPT_DIR / "device_config.json",
 ]
 
@@ -274,15 +310,15 @@ class SimpleDashboard:
 
     def __init__(self):
         self.script_dir = Path(__file__).resolve().parent
-        # Determine project root: if running from scripts/, use parent; else current
-        if (self.script_dir / "config.json").exists():
-            self.project_root = self.script_dir
-        elif (self.script_dir.parent / "config.json").exists():
-            self.project_root = self.script_dir.parent
+        # Use the module-level PROJECT_ROOT for consistent path resolution
+        self.project_root = PROJECT_ROOT
+        
+        # Prefer venv313 if it exists, otherwise use venv
+        if (self.project_root / "venv313" / "bin" / "python").exists():
+            self.venv_dir = self.project_root / "venv313"
         else:
-            # Fallback to script dir
-            self.project_root = self.script_dir
-        self.venv_dir = self.project_root / "venv"
+            self.venv_dir = self.project_root / "venv"
+        
         self.log_dir = self.project_root / "logs"
         self.csv_dir = self.project_root / "data" / "csv"
         self.service_name = "meter-dashboard"
@@ -798,18 +834,18 @@ WantedBy=multi-user.target
                     return None, desired_sim, False
 
             try:
-                # Prefer grouped legacy modules
-                from legacy_core.macros import PARAMETERS  # type: ignore
+                # Import from src directory modules
+                from src.utils.macros import PARAMETERS
 
                 def init_mqtt_if_enabled(config):
                     if not config.get("ENABLE_MQTT"):
                         return None
-                    from legacy_core import mqtt_client as _mqtt  # type: ignore
+                    from src.network import mqtt_client as _mqtt
                     _mqtt.mqtt_main()
                     return _mqtt
 
                 def build_meters(parameters, devices, client, simulation_mode):
-                    from legacy_core.meter_device import MeterDevice  # type: ignore
+                    from src.devices.meter_device import MeterDevice
                     meters = []
                     for i, dev in enumerate(devices):
                         name = dev.get("name", f"Meter_{i+1}")
@@ -820,33 +856,11 @@ WantedBy=multi-user.target
                     return meters
 
                 def create_manager(meters, parameters, csv_path, mqtt_module, publish):
-                    from legacy_core.meter_manager import MeterManager  # type: ignore
+                    from src.devices.meter_manager import MeterManager
                     return MeterManager(meters, parameters, [str(csv_path)], mqtt_client=mqtt_module if publish else None, publish_mqtt=bool(publish))
-            except Exception:
-                # Final fallback to flat root modules
-                from macros import PARAMETERS  # type: ignore
-
-                def init_mqtt_if_enabled(config):
-                    if not config.get("ENABLE_MQTT"):
-                        return None
-                    import mqtt_client as _mqtt
-                    _mqtt.mqtt_main()
-                    return _mqtt
-
-                def build_meters(parameters, devices, client, simulation_mode):
-                    from meter_device import MeterDevice
-                    meters = []
-                    for i, dev in enumerate(devices):
-                        name = dev.get("name", f"Meter_{i+1}")
-                        addr = dev.get("address", i+1)
-                        model = dev.get("model", "")
-                        m = MeterDevice(name=name, model=model, parameters=parameters, client=client, error_file=None, simulation_mode=simulation_mode, device_address=addr)
-                        meters.append(m)
-                    return meters
-
-                def create_manager(meters, parameters, csv_path, mqtt_module, publish):
-                    from meter_manager import MeterManager
-                    return MeterManager(meters, parameters, [str(csv_path)], mqtt_client=mqtt_module if publish else None, publish_mqtt=bool(publish))
+            except Exception as e:
+                self.logger.error(f"Failed to import modules: {e}")
+                raise
 
             self.logger.info("Modules imported successfully")
 
@@ -879,13 +893,10 @@ WantedBy=multi-user.target
             mqtt = init_mqtt_if_enabled(CONFIG)
 
             # Create devices and manager
-            # Dynamic CSV naming: <LOCATION>_<DATE>.csv with a compatibility symlink 'readings_all.csv'
+            # Monthly CSV naming: <LOCATION>_<YEAR>-<MONTH>.csv with a compatibility symlink 'readings_all.csv'
             self.csv_dir.mkdir(parents=True, exist_ok=True)
-            try:
-                pi_name = CONFIG.get("PI_NAME") or socket.gethostname()
-            except Exception:
-                pi_name = "pi"
-            # Derive a representative location from first device (fallback 'Unknown')
+            
+            # Derive location from first device (fallback 'Unknown')
             location = "Unknown"
             try:
                 if DEVICE_CONFIG and isinstance(DEVICE_CONFIG, list):
@@ -893,26 +904,47 @@ WantedBy=multi-user.target
                     location = first_loc
             except Exception:
                 pass
+            
             def _sanitize(s: str) -> str:
                 return "".join(ch for ch in s.replace(" ", "-") if ch.isalnum() or ch in ("-","_")) or "value"
-            pi_name_s = _sanitize(str(pi_name))
+            
             location_s = _sanitize(str(location))
-            date_str = datetime.now().strftime("%Y-%m-%d")
-            dynamic_name = f"{location_s}_{date_str}.csv"
-            csv_file = self.csv_dir / dynamic_name
+            
+            # Helper to get current month's CSV filename
+            def get_monthly_csv_path():
+                month_str = datetime.now().strftime("%Y-%m")
+                filename = f"{location_s}_{month_str}.csv"
+                return self.csv_dir / filename
+            
+            # Create initial CSV file for current month
+            csv_file = get_monthly_csv_path()
+            
             # Backwards-compatible symlink
-            legacy = self.csv_dir / "readings_all.csv"
-            try:
-                if legacy.is_symlink() or legacy.exists():
-                    legacy.unlink()
-                # Create/refresh symlink pointing to current dynamic file
-                legacy.symlink_to(dynamic_name)
-            except Exception:
-                # If symlink creation fails, we silently ignore (legacy code will just not see the new file)
-                pass
-            csv_files = [str(csv_file)]
+            def update_symlink(target_file):
+                legacy = self.csv_dir / "readings_all.csv"
+                try:
+                    if legacy.is_symlink() or legacy.exists():
+                        legacy.unlink()
+                    legacy.symlink_to(target_file.name)
+                except Exception:
+                    pass
+            
+            update_symlink(csv_file)
+            
             meters = build_meters(PARAMETERS, DEVICE_CONFIG, client, CONFIG.get("SIMULATION_MODE", False))
+            
+            # Create manager with callback to handle month changes
             manager = create_manager(meters, PARAMETERS, csv_file, mqtt, CONFIG.get("ENABLE_MQTT", False))
+            
+            # Set up month-change callback
+            def on_month_change():
+                """Called when month changes - rotate to new CSV file"""
+                new_csv = get_monthly_csv_path()
+                self.logger.info(f"Month changed - rotating to new CSV: {new_csv.name}")
+                manager.rotate_csv_file(str(new_csv))
+                update_symlink(new_csv)
+            
+            manager.set_month_change_callback(on_month_change)
 
             self.logger.info(f"Dashboard started with {len(meters)} devices")
 
@@ -1146,11 +1178,17 @@ def main():
             dashboard.create_service_only()
     elif args.run or args.run_service:
         # Both --run and --run-service do the same thing
-        script_dir = Path(__file__).parent.absolute()
-        venv_dir = script_dir / "venv"
+        # Use PROJECT_ROOT for venv lookup
+        venv_dir = PROJECT_ROOT / "venv"
+        venv313_dir = PROJECT_ROOT / "venv313"
+        
+        # Check for either venv or venv313
+        venv_exists = venv_dir.exists() or venv313_dir.exists()
 
-        if not venv_dir.exists():
+        if not venv_exists:
             print("❌ Virtual environment not found!")
+            print(f"   Checked: {venv_dir}")
+            print(f"   Checked: {venv313_dir}")
             print("🔧 Please run setup first:")
             print("   python3 simple_rpi_dashboard.py --setup")
             print("   python3 simple_rpi_dashboard.py --create-service")

@@ -219,7 +219,7 @@ main() {
   enable_services
   echo
   ok "System Python 3.13 venv setup complete. Run dashboard:"
-      echo "  cd ${PROJECT_ROOT} && ${VENV_DIR}/bin/python simple_rpi_dashboard.py --run"
+      echo "  cd ${PROJECT_ROOT} && ${VENV_DIR}/bin/python src/dashboard/simple_rpi_dashboard.py --run"
 }
 
 main "$@"
@@ -229,7 +229,7 @@ if [[ "$START_UI" -eq 1 ]]; then
   if [[ -x "${VENV_DIR}/bin/python" ]]; then
     info "Launching Simple Meter UI using: ${VENV_DIR}/bin/python"
     cd "${PROJECT_ROOT}"
-    exec "${VENV_DIR}/bin/python" simple_meter_ui.py
+    exec "${VENV_DIR}/bin/python" src/dashboard/simple_meter_ui.py
   else
     err "Venv python not found; cannot launch UI"
     exit 1

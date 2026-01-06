@@ -24,30 +24,28 @@ check() {
 echo "Quick Test - Critical Components"
 echo "=================================="
 
-# Core files
-check "master_setup.sh exists" "[ -f setup_launchers/master_setup.sh ]"
-check "terminal_meter_ui.py exists" "[ -f terminal_meter_ui.py ]"
-check "simple_meter_ui.py exists" "[ -f simple_meter_ui.py ]"
+# Core files (now in src/dashboard/)
+check "master_setup.sh exists" "[ -f scripts/setup/master_setup.sh ]"
+check "terminal_meter_ui.py exists" "[ -f src/dashboard/terminal_meter_ui.py ]"
+check "simple_meter_ui.py exists" "[ -f src/dashboard/simple_meter_ui.py ]"
 
-# Symlinks
-check "quick_start symlink works" "[ -L quick_start ]"
-check "complete_setup symlink works" "[ -L complete_setup ]"
+# Launcher scripts
+check "terminal_ui.sh exists" "[ -f scripts/launchers/terminal_ui.sh ]"
 
 # Executability
-check "master_setup.sh executable" "[ -x setup_launchers/master_setup.sh ]"
-check "terminal_ui.sh executable" "[ -x terminal_ui.sh ]"
+check "master_setup.sh executable" "[ -x scripts/setup/master_setup.sh ]"
+check "terminal_ui.sh executable" "[ -x scripts/launchers/terminal_ui.sh ]"
 
 # Python syntax
-check "terminal_meter_ui.py syntax" "python3 -m py_compile terminal_meter_ui.py"
-check "simple_meter_ui.py syntax" "python3 -m py_compile simple_meter_ui.py"
+check "terminal_meter_ui.py syntax" "python3 -m py_compile src/dashboard/terminal_meter_ui.py"
+check "simple_meter_ui.py syntax" "python3 -m py_compile src/dashboard/simple_meter_ui.py"
 
-# Config files
-check "config.json valid JSON" "python3 -c 'import json; json.load(open(\"config.json\"))'"
-check "device_config.json valid JSON" "python3 -c 'import json; json.load(open(\"device_config.json\"))'"
+# Config files (now in config/ directory)
+check "config.json valid JSON" "python3 -c 'import json; json.load(open(\"config/config.json\"))'"
+check "device_config.json valid JSON" "python3 -c 'import json; json.load(open(\"config/device_config.json\"))'"
 
 # Documentation
 check "README.md exists" "[ -f README.md ]"
-check "TESTING_GUIDE.md exists" "[ -f TESTING_GUIDE.md ]"
 
 echo ""
 echo "=================================="
