@@ -8,6 +8,7 @@ import os
 import signal
 import json
 import re
+import sys
 from pathlib import Path
 
 
@@ -27,6 +28,10 @@ def _find_project_root() -> Path:
 
 
 PROJECT_ROOT = _find_project_root()
+
+# Add PROJECT_ROOT to sys.path to ensure 'from src' imports work
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 class OutputWindow(tk.Toplevel):

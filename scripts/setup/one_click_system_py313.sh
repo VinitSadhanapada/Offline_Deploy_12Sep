@@ -229,6 +229,8 @@ if [[ "$START_UI" -eq 1 ]]; then
   if [[ -x "${VENV_DIR}/bin/python" ]]; then
     info "Launching Simple Meter UI using: ${VENV_DIR}/bin/python"
     cd "${PROJECT_ROOT}"
+    # Add PROJECT_ROOT to PYTHONPATH so 'from src' imports work
+    export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
     exec "${VENV_DIR}/bin/python" src/dashboard/simple_meter_ui.py
   else
     err "Venv python not found; cannot launch UI"

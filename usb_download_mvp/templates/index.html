@@ -4,25 +4,266 @@
     <title>Download Data</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: Arial; text-align: center; margin-top: 50px; }
+        body { font-family: Arial; text-align: center; margin-top: 30px; padding: 10px; }
         .btn {
-            background: #4CAF50; color: white; padding: 20px 40px;
-            font-size: 24px; border: none; border-radius: 8px;
-            cursor: pointer; margin: 20px;
+            background: #4CAF50; color: white; padding: 15px 30px;
+            font-size: 20px; border: none; border-radius: 8px;
+            cursor: pointer; margin: 10px;
         }
         .btn:hover { background: #45a049; }
-        .info { color: #666; margin: 20px; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-all {
+            background: #2196F3; color: white; padding: 15px 30px;
+            font-size: 18px; border: none; border-radius: 8px;
+            cursor: pointer; margin: 10px;
+        }
+        .btn-all:hover { background: #1976D2; }
+        .info { color: #666; margin: 15px; }
+        select, input[type="radio"] { font-size: 16px; padding: 8px; margin: 5px; }
+        select { min-width: 150px; }
+        .form-group { margin: 15px 0; }
+        .section { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 500px; }
+        .section h3 { margin-top: 0; color: #333; }
+        .date-info { background: #e8f5e9; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 14px; }
+        #errorMsg { color: red; font-weight: bold; }
+        #successMsg { color: green; font-weight: bold; }
+        .loading { color: #666; font-style: italic; }
     </style>
 </head>
 <body>
-    <h1>Data Download</h1>
-    <p class="info">Click below to download all data as ZIP file</p>
+    <h1>📊 Data Download</h1>
+    
+    <!-- Section 1: Download ALL Data (worst case fallback) -->
+    <div class="section">
+        <h3>🔄 Quick Download - ALL Data</h3>
+        <p class="info">Download everything available (no date filtering)</p>
+        <button type="button" class="btn-all" id="downloadAllBtn" onclick="downloadAllData()">
+            📥 DOWNLOAD ALL DATA
+        </button>
+    </div>
 
-    <form action="/download_all" method="get">
-        <button type="submit" class="btn">📥 DOWNLOAD ALL DATA</button>
-    </form>
+    <!-- Section 2: Filtered Download with Date Selection -->
+    <div class="section">
+        <h3>📅 Filtered Download - Select Date Range</h3>
+        
+        <div class="date-info" id="dateInfo">
+            <span class="loading">Loading available dates...</span>
+        </div>
 
-    <p class="info">File will include all data from: {{ data_dir }}</p>
-    <p style="color: green; font-size: 12px;">Connected successfully via USB</p>
+        <form id="downloadForm">
+            <div class="form-group">
+                <label>
+                    <input type="radio" name="mode" value="single" checked>
+                    Single CSV (all data merged)
+                </label>
+                <label style="margin-left: 20px;">
+                    <input type="radio" name="mode" value="daily">
+                    Per-day CSVs (in ZIP)
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label>Start date:
+                    <select name="start_date" id="startDate" required>
+                        <option value="">-- Select --</option>
+                    </select>
+                </label>
+                <label style="margin-left: 15px;">End date:
+                    <select name="end_date" id="endDate" required>
+                        <option value="">-- Select --</option>
+                    </select>
+                </label>
+            </div>
+            
+            <button type="submit" class="btn" id="downloadBtn" disabled>📥 DOWNLOAD SELECTED DATA</button>
+        </form>
+    </div>
+
+    <p class="info">Data source: {{ data_dir }}</p>
+    <p style="color: green; font-size: 12px;">✅ Connected successfully</p>
+    <p id="errorMsg"></p>
+    <p id="successMsg"></p>
+
+    <script>
+    const form = document.getElementById('downloadForm');
+    const btn = document.getElementById('downloadBtn');
+    const startSelect = document.getElementById('startDate');
+    const endSelect = document.getElementById('endDate');
+    const dateInfo = document.getElementById('dateInfo');
+    const errorMsg = document.getElementById('errorMsg');
+    const successMsg = document.getElementById('successMsg');
+    let availableDates = [];
+
+    // Fetch available dates and populate dropdowns
+    async function fetchAvailableDates() {
+        try {
+            const resp = await fetch('/available_dates');
+            if (!resp.ok) {
+                dateInfo.innerHTML = '<span style="color:red;">Failed to load dates</span>';
+                return;
+            }
+            const data = await resp.json();
+            
+            if (data.all && data.all.length > 0) {
+                availableDates = data.all;
+                
+                // Update info display
+                dateInfo.innerHTML = 
+                    '<strong>Available dates:</strong> ' + data.all.length + ' day(s)<br>' +
+                    '<strong>Range:</strong> ' + formatDate(data.min) + ' to ' + formatDate(data.max);
+                
+                // Populate dropdowns with ONLY available dates
+                populateDropdown(startSelect, availableDates);
+                populateDropdown(endSelect, availableDates);
+                
+                // Auto-select first and last dates
+                startSelect.value = availableDates[0];
+                endSelect.value = availableDates[availableDates.length - 1];
+                
+                validateDates();
+            } else {
+                dateInfo.innerHTML = '<span style="color:orange;">No data available yet</span>';
+                btn.disabled = true;
+            }
+        } catch (e) {
+            dateInfo.innerHTML = '<span style="color:red;">Error loading dates: ' + e.message + '</span>';
+        }
+    }
+
+    function formatDate(isoDate) {
+        const d = new Date(isoDate);
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function populateDropdown(select, dates) {
+        // Clear existing options except the first placeholder
+        select.innerHTML = '<option value="">-- Select --</option>';
+        
+        // Add each available date as an option
+        dates.forEach(function(date) {
+            const option = document.createElement('option');
+            option.value = date;
+            option.textContent = formatDate(date);
+            select.appendChild(option);
+        });
+    }
+
+    function validateDates() {
+        const start = startSelect.value;
+        const end = endSelect.value;
+        errorMsg.textContent = '';
+        
+        if (!start || !end) {
+            btn.disabled = true;
+            return;
+        }
+        
+        if (start > end) {
+            errorMsg.textContent = 'Start date must be before or equal to end date.';
+            btn.disabled = true;
+            return;
+        }
+        
+        // Both dates are from dropdown so they are guaranteed to be valid
+        btn.disabled = false;
+    }
+
+    startSelect.addEventListener('change', validateDates);
+    endSelect.addEventListener('change', validateDates);
+
+    // Download filtered data
+    form.onsubmit = async function(e) {
+        e.preventDefault();
+        errorMsg.textContent = '';
+        successMsg.textContent = '';
+        
+        const mode = form.mode.value;
+        const start_date = startSelect.value;
+        const end_date = endSelect.value;
+        
+        if (!start_date || !end_date) {
+            errorMsg.textContent = 'Please select both start and end dates.';
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.textContent = '⏳ Downloading...';
+        
+        await performDownload('/download_data', {mode: mode, start_date: start_date, end_date: end_date});
+        
+        btn.disabled = false;
+        btn.textContent = '📥 DOWNLOAD SELECTED DATA';
+    };
+
+    // Download ALL data (no filtering)
+    async function downloadAllData() {
+        errorMsg.textContent = '';
+        successMsg.textContent = '';
+        
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        downloadAllBtn.disabled = true;
+        downloadAllBtn.textContent = '⏳ Downloading...';
+        
+        // Use full date range
+        if (availableDates.length > 0) {
+            const start_date = availableDates[0];
+            const end_date = availableDates[availableDates.length - 1];
+            await performDownload('/download_data', {mode: 'single', start_date: start_date, end_date: end_date});
+        } else {
+            // Fallback: try with very wide date range
+            await performDownload('/download_data', {mode: 'single', start_date: '2020-01-01', end_date: '2030-12-31'});
+        }
+        
+        downloadAllBtn.disabled = false;
+        downloadAllBtn.textContent = '�� DOWNLOAD ALL DATA';
+    }
+
+    async function performDownload(endpoint, payload) {
+        try {
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            
+            if (!resp.ok) {
+                let msg = 'Download failed.';
+                try {
+                    const errJson = await resp.json();
+                    msg = errJson.error || msg;
+                } catch(ex) {
+                    msg = await resp.text();
+                }
+                throw new Error(msg);
+            }
+            
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Extract filename from Content-Disposition header or use default
+            const disposition = resp.headers.get('Content-Disposition');
+            let filename = 'data.zip';
+            if (disposition) {
+                const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (match) filename = match[1].replace(/['"]/g, '');
+            }
+            
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            
+            successMsg.textContent = '✅ Download started successfully!';
+        } catch (err) {
+            errorMsg.textContent = 'Error: ' + err.message;
+        }
+    }
+
+    // Initialize on page load
+    fetchAvailableDates();
+    </script>
 </body>
 </html>
