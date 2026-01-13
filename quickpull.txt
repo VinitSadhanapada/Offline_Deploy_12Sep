@@ -1,0 +1,5 @@
+git clone https://github.com/VinitSadhanapada/Offline_Deploy_12Sep.git offline-setup-12Sep && cd offline-setup12Sep && git fetch origin project-reorganization-2025-12-31 && git checkout project-reorganization-2025-12-31
+
+
+
+git config --global user.name "Your Name" && git config --global user.email "your@email.com" && git config --list | grep user.
