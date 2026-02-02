@@ -855,9 +855,9 @@ WantedBy=multi-user.target
                         meters.append(m)
                     return meters
 
-                def create_manager(meters, parameters, csv_path, mqtt_module, publish):
+                def create_manager(meters, parameters, csv_path, mqtt_module, publish, csv_log_interval=60):
                     from src.devices.meter_manager import MeterManager
-                    return MeterManager(meters, parameters, [str(csv_path)], mqtt_client=mqtt_module if publish else None, publish_mqtt=bool(publish))
+                    return MeterManager(meters, parameters, [str(csv_path)], mqtt_client=mqtt_module if publish else None, publish_mqtt=bool(publish), slow_csv_interval=csv_log_interval)
             except Exception as e:
                 self.logger.error(f"Failed to import modules: {e}")
                 raise
@@ -893,7 +893,9 @@ WantedBy=multi-user.target
             self.csv_dir.mkdir(parents=True, exist_ok=True)
             csv_file = self.csv_dir / "DATA_ALL.csv"
             meters = build_meters(PARAMETERS, DEVICE_CONFIG, client, CONFIG.get("SIMULATION_MODE", False))
-            manager = create_manager(meters, PARAMETERS, csv_file, mqtt, CONFIG.get("ENABLE_MQTT", False))
+            csv_log_interval = CONFIG.get("CSV_LOG_INTERVAL", 60)
+            self.logger.info(f"CSV log interval: {csv_log_interval} seconds")
+            manager = create_manager(meters, PARAMETERS, csv_file, mqtt, CONFIG.get("ENABLE_MQTT", False), csv_log_interval)
 
             self.logger.info(f"Dashboard started with {len(meters)} devices")
 

@@ -1,6 +1,7 @@
 {
   "SIMULATION_MODE": false,
   "READING_INTERVAL": 10,
+  "CSV_LOG_INTERVAL": 60,
   "INTER_DEVICE_DELAY": 0.1,
   "PORT": "/dev/ttyUSB0",
   "ENABLE_MQTT": false,

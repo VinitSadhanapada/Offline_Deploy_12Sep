@@ -216,6 +216,7 @@ class SimpleMeterUI(tk.Tk):
         self.proc = None
         self.output_window = None
         self.reading_interval = self._get_reading_interval()
+        self.csv_log_interval = self._get_csv_log_interval()
         self.ap_enabled_var = tk.BooleanVar(value=self._get_ap_enabled_safe())
         self.create_widgets()
         # Refresh AP service state display on startup
@@ -299,6 +300,75 @@ class SimpleMeterUI(tk.Tk):
         except Exception as e:
             print(f"Error reading READING_INTERVAL: {e}")
             return 5
+
+    def _get_csv_log_interval(self):
+        """Get CSV log interval from config.json (default 60 seconds)."""
+        try:
+            from src.utils.paths import get_config_dir
+            config_path = os.path.join(str(get_config_dir()), "config.json")
+            if not os.path.exists(config_path):
+                local_json = str(PROJECT_ROOT / "config" / "config.json")
+                if not os.path.exists(local_json):
+                    local_json = str(PROJECT_ROOT / "config.json")
+                config_path = local_json
+            with open(config_path, "r") as f:
+                content = f.read()
+            content = re.sub(r"//.*", "", content)
+            config = json.loads(content)
+            return int(config.get("CSV_LOG_INTERVAL", 60))
+        except Exception as e:
+            print(f"Error reading CSV_LOG_INTERVAL: {e}")
+            return 60
+
+    def _set_csv_log_interval(self, value):
+        """Set CSV log interval in config.json."""
+        try:
+            from src.utils.paths import get_config_dir
+            config_path = os.path.join(str(get_config_dir()), "config.json")
+            if not os.path.exists(config_path):
+                local_json = str(PROJECT_ROOT / "config" / "config.json")
+                if not os.path.exists(local_json):
+                    local_json = str(PROJECT_ROOT / "config.json")
+                config_path = local_json
+            
+            with open(config_path, "r") as f:
+                content = f.read()
+            content = re.sub(r"//.*", "", content)
+            config = json.loads(content)
+            config["CSV_LOG_INTERVAL"] = int(value)
+            
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+            
+            self.csv_log_interval = int(value)
+            return True
+        except Exception as e:
+            print(f"Error setting CSV_LOG_INTERVAL: {e}")
+            return False
+
+    def _on_csv_interval_change(self):
+        """Handle CSV log interval change from UI."""
+        try:
+            new_val = int(self.csv_interval_var.get())
+            if new_val < 10:
+                messagebox.showwarning("Warning", "Minimum interval is 10 seconds to avoid SD card wear.")
+                self.csv_interval_var.set(str(self.csv_log_interval))
+                return
+            if new_val > 3600:
+                messagebox.showwarning("Warning", "Maximum interval is 3600 seconds (1 hour).")
+                self.csv_interval_var.set(str(self.csv_log_interval))
+                return
+            
+            if self._set_csv_log_interval(new_val):
+                self.status_label.config(text=f"CSV Log Interval set to {new_val}s. Restart logging for changes to take effect.", fg="green")
+                self.output.insert(tk.END, f"\n[Config] CSV_LOG_INTERVAL changed to {new_val} seconds.\n")
+                self.output.insert(tk.END, "Note: Restart Manual Run or reboot for changes to take effect.\n")
+            else:
+                messagebox.showerror("Error", "Failed to save CSV log interval.")
+                self.csv_interval_var.set(str(self.csv_log_interval))
+        except ValueError:
+            messagebox.showerror("Error", "Please enter a valid number.")
+            self.csv_interval_var.set(str(self.csv_log_interval))
 
     # --- Cloud sync enable/disable helpers ---
     def _load_jsonc(self, path):
@@ -461,6 +531,9 @@ class SimpleMeterUI(tk.Tk):
         tk.Label(self, text="Simple Meter Dashboard - Technician UI", font=("Arial", 16, "bold")).pack(pady=10)
         self.btn_frame1 = tk.Frame(self)
         self.btn_frame1.pack(pady=5)
+        # CSV log interval row
+        self.csv_frame = tk.Frame(self)
+        self.csv_frame.pack(pady=2)
         # AP / service toggle row
         self.ap_frame = tk.Frame(self)
         self.ap_frame.pack(pady=2)
@@ -475,6 +548,14 @@ class SimpleMeterUI(tk.Tk):
         tk.Button(self.btn_frame1, text="View/Edit Config", width=18, command=self.edit_config).pack(side=tk.LEFT, padx=5)
         self.auto_start_btn = tk.Button(self.btn_frame1, text="Enable Auto-Start", width=18, command=self.auto_start)
         self.auto_start_btn.pack(side=tk.LEFT, padx=5)
+
+        # CSV log interval control
+        tk.Label(self.csv_frame, text="CSV Log Interval (seconds):").pack(side=tk.LEFT, padx=(5,2))
+        self.csv_interval_var = tk.StringVar(value=str(self.csv_log_interval))
+        self.csv_interval_entry = tk.Entry(self.csv_frame, textvariable=self.csv_interval_var, width=6)
+        self.csv_interval_entry.pack(side=tk.LEFT, padx=2)
+        tk.Button(self.csv_frame, text="Apply", width=6, command=self._on_csv_interval_change).pack(side=tk.LEFT, padx=2)
+        tk.Label(self.csv_frame, text="(10-3600s, lower = more writes)", fg="gray").pack(side=tk.LEFT, padx=(5,2))
 
         # AP at boot toggle
         tk.Label(self.ap_frame, text="AP at boot:").pack(side=tk.LEFT, padx=(5,2))
