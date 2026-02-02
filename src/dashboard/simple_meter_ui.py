@@ -1,15 +1,32 @@
+
 #!/usr/bin/env python3
+
+# --- Ensure src is always in sys.path (must be first!) ---
+import sys
+import os
+from pathlib import Path
+def _find_project_root() -> Path:
+    script_path = Path(__file__).resolve()
+    for parent in [script_path.parent, *script_path.parents]:
+        if (parent / "src").is_dir() and (parent / "config").is_dir():
+            return parent
+        if (parent / "venv").is_dir() and (parent / "src").is_dir():
+            return parent
+        if parent == Path.home() or parent == Path("/"):
+            break
+    return script_path.parent.parent.parent
+PROJECT_ROOT = _find_project_root()
+SRC_PATH = str(PROJECT_ROOT / "src")
+if SRC_PATH not in sys.path:
+    sys.path.insert(0, SRC_PATH)
 
 import tkinter as tk
 from tkinter import scrolledtext, messagebox, filedialog
 import subprocess
 import threading
-import os
 import signal
 import json
 import re
-import sys
-from pathlib import Path
 
 
 def _find_project_root() -> Path:
@@ -252,12 +269,14 @@ class SimpleMeterUI(tk.Tk):
         _ensure_offline_packages()
 
     def check_rtc_status(self):
-        import subprocess
-        result = subprocess.run(["python3", "rtc_new.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        if result.returncode != 0:
-            self.bottom_status_label.config(text="Real Time Clock Module Not Connected", fg="red")
-        else:
-            self.bottom_status_label.config(text="RTC detected and working.", fg="green")
+        try:
+            from src.utils.rtc_module import is_rtc_available
+            if is_rtc_available():
+                self.bottom_status_label.config(text="RTC detected and working.", fg="green")
+            else:
+                self.bottom_status_label.config(text="Real Time Clock Module Not Connected", fg="red")
+        except Exception as e:
+            self.bottom_status_label.config(text=f"RTC check error: {e}", fg="red")
 
     def _get_reading_interval(self):
         try:

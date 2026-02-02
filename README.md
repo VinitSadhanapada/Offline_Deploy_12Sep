@@ -121,7 +121,7 @@ offline-setup-12Sep/
 ├── terminal_ui.sh                     ← Terminal UI launcher
 ├── simple_rpi_dashboard.py            ← Core dashboard engine
 ├── one_click_system_py313.sh          ← Python environment setup
-├── data/csv/                          ← Meter reading data
+├── data/csv/                          ← Meter reading data (all readings in DATA_ALL.csv)
 ├── logs/                              ← System logs
 ├── exports/                           ← Prepared files for download
 └── usb_download_mvp/                  ← USB download server & WiFi AP
@@ -173,6 +173,7 @@ python3 terminal_meter_ui.py
 | `setup_static_ethernet.sh` | Static IP for eth0 | Enable laptop Ethernet access |
 | `enable_auto_start.sh` | systemd service | Production deployment |
 
+
 ### UI Applications
 
 | File | Purpose | Access Method |
@@ -180,6 +181,23 @@ python3 terminal_meter_ui.py
 | `simple_meter_ui.py` | Graphical UI | Desktop with mouse/keyboard |
 | `terminal_meter_ui.py` | Text-based UI | SSH/Terminal |
 | `simple_rpi_dashboard.py` | Core engine | Backend (auto-started) |
+
+---
+
+## 📄 Data File Convention (2026+)
+
+All meter readings from all devices are now written to a single file:
+
+	data/csv/DATA_ALL.csv
+
+**Retention Policy:**
+- Only the most recent 2 weeks of data are kept locally. Older data is automatically deleted as new readings are added.
+- This ensures the file never grows unbounded and always contains the latest 14 days of readings.
+
+**Format:**
+| Device_ID | Meter_Name | Time | Model | ...parameters... |
+
+To extract or analyze data, simply download this file from any RPi. This ensures a consistent, single-source-of-truth for all meter data on each device.
 
 ### Utilities
 

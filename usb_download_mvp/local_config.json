@@ -1,5 +1,5 @@
 {
     "usb_ap": {
-        "enabled": true
+        "enabled": false
     }
 }

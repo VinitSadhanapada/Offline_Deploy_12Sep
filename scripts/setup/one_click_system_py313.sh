@@ -180,7 +180,7 @@ offline_install() {
   [[ -d "$PACKAGES_DIR" ]] || { err "packages_folder missing: $PACKAGES_DIR"; exit 1; }
   info "Installing offline wheels"
   "$VENV_DIR/bin/python" -m pip install --no-index --find-links="$PACKAGES_DIR" \
-    numpy pandas pymodbus pyserial paho-mqtt termcolor python-dateutil tzdata six pytz || {
+    numpy pandas pymodbus pyserial paho-mqtt termcolor python-dateutil tzdata six pytz smbus2 || {
       err "Offline install failed; verify cp313 wheels exist."; exit 1; }
 }
 

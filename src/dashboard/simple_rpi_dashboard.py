@@ -866,21 +866,16 @@ WantedBy=multi-user.target
 
             # Initialize RTC for offline time keeping
             if CONFIG["ENABLE_RTC"]:
-                self.logger.info(
-                    "Initializing RTC system for offline time keeping...")
+                self.logger.info("Initializing RTC system for offline time keeping...")
                 try:
-                    from rtc_manager import RTCManager
-                    rtc_manager = RTCManager(logger=self.logger)
-
-                    if rtc_manager.initialize_for_offline_operation():
-                        self.logger.info(
-                            "✅ RTC system ready for offline operation")
+                    from src.utils.rtc_module import is_rtc_available, get_rtc_time
+                    if is_rtc_available():
+                        rtc_time = get_rtc_time()
+                        self.logger.info(f"✅ RTC system ready for offline operation. RTC time: {rtc_time}")
                     else:
-                        self.logger.warning(
-                            "⚠️ RTC initialization failed - using system time only")
+                        self.logger.warning("⚠️ RTC initialization failed - using system time only")
                 except Exception as e:
-                    self.logger.warning(
-                        f"⚠️ RTC initialization error: {e} - using system time only")
+                    self.logger.warning(f"⚠️ RTC initialization error: {e} - using system time only")
             else:
                 self.logger.info("RTC disabled - using system time only")
 
@@ -893,58 +888,12 @@ WantedBy=multi-user.target
             mqtt = init_mqtt_if_enabled(CONFIG)
 
             # Create devices and manager
-            # Monthly CSV naming: <LOCATION>_<YEAR>-<MONTH>.csv with a compatibility symlink 'readings_all.csv'
+
+            # Always use DATA_ALL.csv in data/csv/
             self.csv_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Derive location from first device (fallback 'Unknown')
-            location = "Unknown"
-            try:
-                if DEVICE_CONFIG and isinstance(DEVICE_CONFIG, list):
-                    first_loc = DEVICE_CONFIG[0].get("location") or "Unknown"
-                    location = first_loc
-            except Exception:
-                pass
-            
-            def _sanitize(s: str) -> str:
-                return "".join(ch for ch in s.replace(" ", "-") if ch.isalnum() or ch in ("-","_")) or "value"
-            
-            location_s = _sanitize(str(location))
-            
-            # Helper to get current month's CSV filename
-            def get_monthly_csv_path():
-                month_str = datetime.now().strftime("%Y-%m")
-                filename = f"{location_s}_{month_str}.csv"
-                return self.csv_dir / filename
-            
-            # Create initial CSV file for current month
-            csv_file = get_monthly_csv_path()
-            
-            # Backwards-compatible symlink
-            def update_symlink(target_file):
-                legacy = self.csv_dir / "readings_all.csv"
-                try:
-                    if legacy.is_symlink() or legacy.exists():
-                        legacy.unlink()
-                    legacy.symlink_to(target_file.name)
-                except Exception:
-                    pass
-            
-            update_symlink(csv_file)
-            
+            csv_file = self.csv_dir / "DATA_ALL.csv"
             meters = build_meters(PARAMETERS, DEVICE_CONFIG, client, CONFIG.get("SIMULATION_MODE", False))
-            
-            # Create manager with callback to handle month changes
             manager = create_manager(meters, PARAMETERS, csv_file, mqtt, CONFIG.get("ENABLE_MQTT", False))
-            
-            # Set up month-change callback
-            def on_month_change():
-                """Called when month changes - rotate to new CSV file"""
-                new_csv = get_monthly_csv_path()
-                self.logger.info(f"Month changed - rotating to new CSV: {new_csv.name}")
-                manager.rotate_csv_file(str(new_csv))
-                update_symlink(new_csv)
-            
-            manager.set_month_change_callback(on_month_change)
 
             self.logger.info(f"Dashboard started with {len(meters)} devices")
 

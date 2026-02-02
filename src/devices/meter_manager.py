@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
 import csv
 import time
+import os
+import re
+import tempfile
+import logging
+import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
+import pandas as pd
+
+# Time sanitizer for RTC-based time integrity
+try:
+    from src.utils.time_sanitizer import RTCTimeSanitizer
+    TIME_SANITIZER_AVAILABLE = True
+except ImportError:
+    TIME_SANITIZER_AVAILABLE = False
 
 
 def format_csv_value(value, param_name):
@@ -65,7 +78,7 @@ Designed to handle complex meter reading scenarios with centralized management.
 
 
 class MeterManager:
-    DEFAULT_RETENTION_DAYS = 7
+    DEFAULT_RETENTION_DAYS = 14  # 2 weeks
 
     def _ensure_csv_file(self):
         """
@@ -150,27 +163,94 @@ class MeterManager:
         >>> print(f"Completed {manager.TotalReadings} reading cycles")
     """
 
-    def __init__(self, meters, parameters, csv_filenames, ui_callback=None, mqtt_client=None, publish_mqtt=False):
+    def __init__(self, meters, parameters, csv_filenames=None, ui_callback=None, mqtt_client=None, publish_mqtt=False,
+                 fast_poll_interval=0.5, slow_csv_interval=60):
         """
         Initialize MeterManager with devices and configuration.
+
+        Dual-rate architecture:
+        - fast_poll_interval: Seconds between blackout checks (default 0.5)
+        - slow_csv_interval: Seconds between main CSV writes (default 60)
 
         Args:
             meters (List[MeterDevice]): Meter devices to manage
             parameters (List[str]): Parameter names for all devices
-            csv_filenames (List[str]): CSV log file paths (should be a single file per location)
+            csv_filenames (ignored): CSV log file paths (ignored; always uses DATA_ALL.csv)
             ui_callback (callable, optional): UI update function
             mqtt_client (object, optional): MQTT client for publishing
             publish_mqtt (bool): Enable MQTT message publishing
+            fast_poll_interval (float): Seconds between fast polls for blackout detection (default 0.5)
+            slow_csv_interval (float): Seconds between main CSV writes (default 60)
         """
         self.meters = meters
         self.parameters = parameters
-
-        # Only one CSV file per location is supported
-        if len(csv_filenames) != 1:
-            raise ValueError(
-                "MeterManager expects a single CSV file per location (all meters in one file).")
-        # Track CSV path for retention management
-        self.csv_path = csv_filenames[0]
+        
+        # Setup error logger
+        self.error_logger = logging.getLogger(__name__)
+        if not self.error_logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self.error_logger.addHandler(handler)
+            self.error_logger.setLevel(logging.INFO)
+        
+        # Dual-rate timing configuration
+        self.fast_poll_interval = fast_poll_interval
+        self.slow_csv_interval = slow_csv_interval
+        
+        # Timing trackers
+        self._last_poll_time = 0
+        self._last_csv_write_time = 0
+        
+        # Per-meter state for fast polling (blackout detection)
+        self._meter_state = {}
+        for idx, m in enumerate(meters):
+            name = getattr(m, 'name', f"Meter_{idx+1}")
+            self._meter_state[name] = {
+                'latest_values': None,
+                'last_int_count': None,
+                'last_poll_success': None
+            }
+        
+        # Per-meter state tracking for refined detection (Feature 5/6)
+        self._meter_comm_state = {}  # meter_name -> True/False (healthy/error)
+        self._meter_last_valid_int = {}  # Last known good Int count (not -1)
+        self._meter_suspect_state = {}  # For Option C deferred confirmation
+        
+        for idx, m in enumerate(meters):
+            name = getattr(m, 'name', f"Meter_{idx+1}")
+            self._meter_comm_state[name] = True  # Assume healthy start
+            self._meter_last_valid_int[name] = None
+            self._meter_suspect_state[name] = {
+                'suspect_timestamp': None,  # When we first saw Freq=0,Int=0
+                'suspect_last_int': None,
+                'pending_confirmation': False
+            }
+        
+        # Find interruption and frequency parameter indices once
+        self._intr_idx = self._find_param_index(parameters, ['interruption', 'intr', 'no of interruption', 'noofintr'])
+        self._freq_idx = self._find_param_index(parameters, ['frequency', 'freq'])
+        
+        # Always use DATA_ALL.csv in data/csv/
+        from pathlib import Path
+        data_dir = Path(__file__).resolve().parent.parent.parent / "data" / "csv"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.csv_path = str(data_dir / "DATA_ALL.csv")
+        self.data_dir = data_dir
+        
+        # Setup backup directory for rotated archives
+        self.backup_dir = data_dir / "backup"
+        self.backup_dir.mkdir(exist_ok=True)
+        
+        # Retention settings
+        self.retention_days = self.DEFAULT_RETENTION_DAYS
+        self.prune_check_interval = 3600  # 1 hour
+        self._last_prune_check = time.time()
+        self.rotation_size_threshold = 1 * 1024 * 1024  # 1MB triggers rotation
+        
+        # Track CSV start time for naming archives
+        self._current_csv_start_time = None  # Set after file is opened
+        
         try:
             self.csv_file = open(self.csv_path, "a", newline='')
         except Exception as e:
@@ -186,249 +266,811 @@ class MeterManager:
             self.csv_file.seek(0, 2)
         except Exception as e:
             print(f"Error writing header to CSV: {e}")
+        
+        # Get CSV start time for archive naming
+        self._current_csv_start_time = self._get_csv_start_time()
+        
+        # Detect and repair any CSV corruption on startup
+        self._detect_and_repair_corruption()
+        
+        # Setup events CSV (fast, immediate flush for blackout detection)
+        self.events_path = data_dir / "EVENTS.csv"
+        self._init_events_csv()
+        
+        # Initialize time sanitizer for RTC-based time integrity
+        self._last_csv_timestamp = None  # For time jump detection
+        if TIME_SANITIZER_AVAILABLE:
+            try:
+                state_file = data_dir.parent / "rtc_state.json"
+                self.time_sanitizer = RTCTimeSanitizer(state_file_path=str(state_file))
+                
+                # Validate time on startup
+                is_valid, time_events = self.time_sanitizer.validate_and_correct()
+                for event in time_events:
+                    self._log_system_event(event)
+                
+                if is_valid:
+                    self.error_logger.info("Time sanitizer: RTC validation passed")
+                else:
+                    self.error_logger.warning("Time sanitizer: RTC validation failed, check EVENTS.csv")
+            except Exception as e:
+                self.error_logger.error(f"Failed to initialize time sanitizer: {e}")
+                self.time_sanitizer = None
+        else:
+            self.time_sanitizer = None
+            self.error_logger.debug("Time sanitizer not available (import failed)")
+        
         self.ui_callback = ui_callback
         self.allRegValues = [[0] * len(parameters) for _ in meters]
         self.published_msg = 0
         self.TotalReadings = 0
         self.mqtt_client = mqtt_client
         self.publish_mqtt = publish_mqtt
-        # Rolling log retention controls
-        self.retention_days = self.DEFAULT_RETENTION_DAYS
-        self._last_prune_epoch = 0  # epoch seconds of last prune
-        # Month-change tracking for CSV rotation
-        self.current_month = datetime.now().strftime("%Y-%m")
+        # Month-change tracking for CSV rotation (disabled)
+        self.current_month = None
         self.month_change_callback = None
 
     def set_month_change_callback(self, callback):
-        """Set callback function to be called when month changes.
-        
-        Args:
-            callback: Function to call when month changes (no arguments)
-        """
-        self.month_change_callback = callback
+        # No-op: month change/rotation is disabled in single-file mode
+        pass
 
     def rotate_csv_file(self, new_csv_path):
-        """Rotate to a new CSV file (e.g., when month changes).
-        
-        Args:
-            new_csv_path: Path to the new CSV file
-        """
-        # Close current file
-        try:
-            if self.csv_file and not self.csv_file.closed:
-                self.csv_file.flush()
-                self.csv_file.close()
-        except Exception as e:
-            print(f"Warning: Error closing old CSV file: {e}")
-        
-        # Open new file
-        self.csv_path = new_csv_path
-        try:
-            self.csv_file = open(self.csv_path, "a", newline='')
-            self.csv_writer = csv.writer(self.csv_file)
-            # Write header if file is empty
-            self.csv_file.seek(0, 2)
-            if self.csv_file.tell() == 0:
-                formatted_headers = create_formatted_csv_header(self.parameters)
-                self.csv_writer.writerow(formatted_headers)
-            self.csv_file.seek(0, 2)
-        except Exception as e:
-            print(f"Error opening new CSV file {self.csv_path}: {e}")
+        # No-op: rotation is disabled in single-file mode
+        pass
 
     def _check_month_change(self):
-        """Check if the month has changed and trigger callback if set."""
-        current_month = datetime.now().strftime("%Y-%m")
-        if current_month != self.current_month:
-            self.current_month = current_month
-            if self.month_change_callback:
-                try:
-                    self.month_change_callback()
-                except Exception as e:
-                    print(f"Error in month_change_callback: {e}")
+        # No-op: month change/rotation is disabled in single-file mode
+        pass
+
+    def _find_param_index(self, parameters, keywords):
+        """Find parameter index by keyword matching (case insensitive)."""
+        for i, param in enumerate(parameters):
+            p_clean = param.lower().replace(" ", "").replace("_", "").replace(".", "")
+            for kw in keywords:
+                if kw in p_clean:
+                    return i
+        return None
+
+    def _init_events_csv(self):
+        """Initialize events log (blackouts, time jumps, etc.) - immediate flush."""
+        try:
+            if not self.events_path.exists():
+                with open(self.events_path, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([
+                        'timestamp_detected',
+                        'event_type',           # BLACKOUT, TIME_JUMP, COMM_ERROR, etc.
+                        'meter_name',
+                        'details',              # JSON-style details
+                        'count_before',
+                        'count_after',
+                        'estimated_start'
+                    ])
+                    f.flush()
+                    os.fsync(f.fileno())
+            # Append mode for events
+            self.events_file = open(self.events_path, 'a', newline='', buffering=1)
+            self.events_writer = csv.writer(self.events_file)
+            
+        except Exception as e:
+            self.error_logger.error(f"Failed to init events CSV: {e}")
+            # Don't raise - events logging is non-critical
+            self.events_file = None
+            self.events_writer = None
 
     def read_all(self, stdscr=None, inter_device_delay=0.1):
         """
-        Read data from all meters and perform associated operations.
+        Dual-rate acquisition loop:
+        - Runs every fast_poll_interval (0.5s) for blackout detection
+        - Writes to main CSV only every slow_csv_interval (60s)
 
         Coordinates a complete reading cycle across all managed meters, including:
         - Data collection from each MeterDevice
-        - CSV logging of readings
+        - Blackout detection via interruption count monitoring
+        - CSV logging of readings (at slow interval)
         - MQTT publishing (if enabled)
         - UI callback execution (if provided)
 
-        This method is thread-safe and handles errors gracefully, ensuring that
-        failure in one meter doesn't prevent reading from others.
-
         Args:
             stdscr (curses.window, optional): Curses screen object for UI updates.
-                                            If provided and ui_callback is set,
-                                            passes to callback for display updates.
             inter_device_delay (float): Delay in seconds between reading each device.
                                       Default: 0.1 seconds (100ms)
 
         Returns:
             None
-
-        Side Effects:
-            - Increments self.TotalReadings counter
-            - Updates self.allRegValues with latest readings
-            - Writes new rows to CSV files
-            - Publishes MQTT messages (if enabled)
-            - Calls UI callback (if configured)
-
-        Example:
-            >>> manager.read_all()  # Simple reading cycle
-            >>> manager.read_all(inter_device_delay=0.2)  # With 200ms delay between devices
-
-        Note:
-            The stdscr parameter exists for backwards compatibility with legacy
-            curses-based implementations but is not used in the modern console
-            dashboard (print_dashboard2.py).
         """
+        current_time = time.time()
+        
+        # Throttle: Respect fast polling interval
+        if current_time - self._last_poll_time < self.fast_poll_interval:
+            return
+        
+        self._last_poll_time = current_time
+        poll_timestamp = datetime.now()
         self.TotalReadings += 1
         
         # Check if month has changed and rotate CSV if needed
         self._check_month_change()
         
+        # --- FAST POLL PHASE (Every 0.5s) ---
         for i, meter in enumerate(self.meters):
-            regValue = meter.read_data()
-            # Ensure CSV file exists and is open before writing
-            self._ensure_csv_file()
+            meter_name = getattr(meter, 'name', f"Meter_{i+1}")
+            state = self._meter_state.get(meter_name, {})
+            
             try:
-                formatted_row = [
-                    getattr(meter, 'device_address', i +
-                            1), getattr(meter, 'name', f"Meter_{i+1}")
-                ]
-                for j, value in enumerate(regValue):
-                    if j == 0:  # Timestamp - keep as-is
-                        formatted_row.append(value)
-                        # Insert model after time
-                        formatted_row.append(
-                            getattr(meter, 'model', 'Unknown'))
-                    else:
-                        param_name = self.parameters[j] if j < len(
-                            self.parameters) else "Unknown"
-                        formatted_value = format_csv_value(value, param_name)
-                        formatted_row.append(formatted_value)
-                self.csv_writer.writerow(formatted_row)
-                self.csv_file.flush()
+                # Fast read from meter
+                regValue = meter.read_data()
+                
+                # --- REFINED BLACKOUT DETECTION (Feature 5/6 with Option C) ---
+                # Process with refined logic (comm state machine, deferred confirmation)
+                should_log, processed_values = self._process_meter_reading(meter_name, regValue)
+                
+                # Store latest values for slow CSV
+                state['latest_values'] = processed_values
+                state['last_poll_success'] = poll_timestamp
+                self._meter_state[meter_name] = state
+                
+                # Update allRegValues for compatibility
+                self.allRegValues[i] = processed_values.copy() if processed_values else regValue.copy()
+                
             except Exception as e:
-                print(f"Error writing to CSV file: {e}")
-
-            if self.publish_mqtt and self.mqtt_client:
+                self.error_logger.debug(f"Fast poll failed for {meter_name}: {e}")
+                # Mark as comm error on exception
+                self._meter_comm_state[meter_name] = False
+            
+            # MQTT publishing (every poll for real-time)
+            if self.publish_mqtt and self.mqtt_client and state.get('latest_values'):
                 meta = {
                     'device_id': getattr(meter, 'device_address', i + 1),
                     'model': getattr(meter, 'model', None),
                     'location': getattr(meter, 'location', None),
                 }
                 self.published_msg = self.mqtt_client.publish_message(
-                    self.parameters, regValue, meter.name, meta=meta)
-            self.allRegValues[i] = regValue.copy()
-
-            # Add delay between device reads to avoid Modbus conflicts
+                    self.parameters, state['latest_values'], meter.name, meta=meta)
+            
+            # Inter-device delay
             if i < len(self.meters) - 1 and inter_device_delay > 0:
                 time.sleep(inter_device_delay)
-        if self.ui_callback and stdscr is not None:
+        
+        # --- SLOW CSV WRITE PHASE (Every 60s) ---
+        if current_time - self._last_csv_write_time >= self.slow_csv_interval:
+            # Time sanity checks before writing
+            if self.time_sanitizer:
+                # Check for runtime drift (system vs RTC)
+                drift_event = self.time_sanitizer.check_drift()
+                if drift_event:
+                    self._log_system_event(drift_event)
+                
+                # Check for time jump between CSV writes
+                for meter_name, state in self._meter_state.items():
+                    values = state.get('latest_values')
+                    if values and len(values) > 0:
+                        current_ts = values[0]  # Timestamp is first element
+                        if current_ts and self._last_csv_timestamp:
+                            jump_event = self.time_sanitizer.check_discontinuity(
+                                current_ts, self._last_csv_timestamp
+                            )
+                            if jump_event:
+                                self._log_system_event(jump_event)
+                        self._last_csv_timestamp = current_ts
+                        break  # Only need to check once
+            
+            self._write_slow_csv()
+            self._last_csv_write_time = current_time
+            # Periodically prune old rows to enforce rolling retention
+            self._maybe_prune_old_rows()
+        
+        # Update UI with latest values
+        if self.ui_callback:
             self.ui_callback(self.TotalReadings, stdscr, self.allRegValues)
-        # Periodically prune old rows to enforce rolling retention
-        self._maybe_prune_old_rows()
+
+    def _write_row_safe(self, row):
+        """
+        Write row with power-loss durability and external rotation handling.
+        Returns True if written successfully.
+        """
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                # Check 1: Has file been deleted/rotated externally?
+                if not os.path.exists(self.csv_path):
+                    self._reopen_csv_recreate()
+                
+                # Check 2: Is handle still valid?
+                if self.csv_file.closed:
+                    self._reopen_csv_append()
+                
+                # Write and flush to OS buffer
+                self.csv_writer.writerow(row)
+                self.csv_file.flush()
+                
+                # Critical: Force physical write to disk (survives power loss)
+                os.fsync(self.csv_file.fileno())
+                return True
+                
+            except (IOError, OSError) as e:
+                if attempt < max_retries - 1:
+                    time.sleep(0.1 * (attempt + 1))
+                    continue
+                self.error_logger.error(f"CSV write failed after retries: {e}")
+                return False
+    
+    def _reopen_csv_recreate(self):
+        """File was deleted/rotated. Create new file with headers."""
+        try:
+            if hasattr(self, 'csv_file') and self.csv_file:
+                self.csv_file.close()
+        except:
+            pass
+            
+        self.csv_file = open(self.csv_path, 'a', newline='', buffering=1)
+        self.csv_writer = csv.writer(self.csv_file)
+        
+        # Write header if empty
+        if os.path.getsize(self.csv_path) == 0:
+            self.csv_writer.writerow(create_formatted_csv_header(self.parameters))
+            self.csv_file.flush()
+            os.fsync(self.csv_file.fileno())
+    
+    def _reopen_csv_append(self):
+        """Simple reopen for append mode."""
+        self.csv_file = open(self.csv_path, 'a', newline='', buffering=1)
+        self.csv_writer = csv.writer(self.csv_file)
+
+    def _log_blackout_event(self, detected_time, meter_name, count_before, count_after, frequency):
+        """Write blackout to EVENTS.csv with immediate disk sync (survives power loss)."""
+        if not self.events_writer:
+            return
+            
+        try:
+            # Estimate start time (polling interval ago, roughly)
+            est_start = detected_time - timedelta(seconds=self.fast_poll_interval)
+            
+            row = [
+                detected_time.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],  # Millis precision
+                'BLACKOUT',
+                meter_name,
+                f'Int count jump {count_before}->{count_after}',
+                count_before,
+                count_after,
+                est_start.strftime('%H:%M:%S.%f')[:-3]
+            ]
+            
+            self.events_writer.writerow(row)
+            self.events_file.flush()
+            os.fsync(self.events_file.fileno())  # Critical: immediate disk write
+            
+            self.error_logger.info(
+                f"BLACKOUT: {meter_name} {count_before}->{count_after} "
+                f"at {detected_time.strftime('%H:%M:%S')}"
+            )
+            
+        except Exception as e:
+            self.error_logger.error(f"Failed to log blackout: {e}")
+
+    def _log_system_event(self, event_dict):
+        """
+        Write system events (time corrections, battery fails, boot gaps, etc.) to EVENTS.csv.
+        
+        Args:
+            event_dict: Dictionary containing event details with at minimum 'type' key
+        """
+        if not self.events_writer:
+            return
+            
+        try:
+            import json
+            
+            row = [
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],  # Millis precision
+                event_dict.get('type', 'UNKNOWN'),
+                'SYSTEM',  # meter_name column - system events use 'SYSTEM'
+                json.dumps(event_dict),  # Full details as JSON string
+                '',  # count_before - empty for system events
+                '',  # count_after - empty for system events
+                ''   # estimated_start - empty for system events
+            ]
+            
+            self.events_writer.writerow(row)
+            self.events_file.flush()
+            os.fsync(self.events_file.fileno())  # Critical: immediate disk write
+            
+            self.error_logger.info(f"SYSTEM EVENT: {event_dict.get('type', 'UNKNOWN')}")
+            
+        except Exception as e:
+            self.error_logger.error(f"Failed to log system event: {e}")
+
+    def _log_event(self, timestamp, event_type, meter_name, details, count_before, count_after):
+        """Universal event logger with immediate fsync for all event types."""
+        try:
+            # Ensure file handle is valid
+            if not hasattr(self, 'events_file') or self.events_file is None or self.events_file.closed:
+                self._init_events_csv()
+            
+            if not self.events_writer:
+                return
+            
+            row = [
+                timestamp,
+                event_type,
+                meter_name,
+                details,
+                str(count_before) if count_before != '' else '',
+                str(count_after) if count_after != '' else '',
+                ''  # estimated_start column (optional for some events)
+            ]
+            
+            self.events_writer.writerow(row)
+            self.events_file.flush()
+            os.fsync(self.events_file.fileno())
+            
+            # Also log to error_logger for console visibility
+            self.error_logger.info(f"[{event_type}] {meter_name}: {details}")
+            
+        except Exception as e:
+            self.error_logger.error(f"Failed to log event: {e}")
+
+    def _process_meter_reading(self, meter_name, reg_values):
+        """
+        Process single meter reading with refined detection logic (Option C deferred confirmation).
+        
+        Features:
+        - Comm Error State Machine: Single START/END events (not every cycle)
+        - Blackout Detection: Freq=0 AND Int increased proves line dead
+        - Option C Deferred: Suspect state (Freq=0,Int=0) waits for next poll confirmation
+        - False Positive Filter: Ignores Int increases if Freq>0 (meter glitch, not blackout)
+        
+        Returns: (should_log_to_csv, processed_values)
+        """
+        freq_idx = self._freq_idx
+        intr_idx = self._intr_idx
+        
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Extract values (handle index bounds)
+        freq_val = reg_values[freq_idx] if freq_idx is not None and len(reg_values) > freq_idx else -1
+        intr_val = reg_values[intr_idx] if intr_idx is not None and len(reg_values) > intr_idx else -1
+        
+        # --- FEATURE 5: Comm Error State Machine ---
+        comm_healthy = (freq_val != -1 and intr_val != -1)
+        was_healthy = self._meter_comm_state.get(meter_name, True)
+        
+        if comm_healthy != was_healthy:
+            if comm_healthy:
+                # Recovery from comm error
+                self._log_event(
+                    timestamp=current_time,
+                    event_type='COMM_ERROR_END',
+                    meter_name=meter_name,
+                    details='Communication restored',
+                    count_before='',
+                    count_after=''
+                )
+                self._meter_comm_state[meter_name] = True
+            else:
+                # Entered comm error
+                self._log_event(
+                    timestamp=current_time,
+                    event_type='COMM_ERROR_START',
+                    meter_name=meter_name,
+                    details=f'Values became -1 (Freq:{freq_val}, Int:{intr_val})',
+                    count_before=str(self._meter_last_valid_int.get(meter_name, 'N/A')),
+                    count_after='-1'
+                )
+                self._meter_comm_state[meter_name] = False
+        
+        # If comm error, don't process for blackout detection
+        if not comm_healthy:
+            return True, reg_values  # Still write -1 to CSV
+        
+        # Convert to numeric for checks
+        try:
+            freq = float(freq_val)
+            intr = int(float(intr_val))
+        except (ValueError, TypeError):
+            return True, reg_values  # Parse error, treat as data
+        
+        # --- FEATURE 4 & 6: Blackout Detection (Option C Deferred) ---
+        last_intr = self._meter_last_valid_int.get(meter_name)
+        suspect_state = self._meter_suspect_state.get(meter_name, {
+            'suspect_timestamp': None,
+            'suspect_last_int': None,
+            'pending_confirmation': False
+        })
+        
+        # Check for deferred confirmation from previous suspect state
+        if suspect_state.get('pending_confirmation', False):
+            prev_intr = suspect_state.get('suspect_last_int')
+            
+            if prev_intr is not None and intr > prev_intr:
+                # CONFIRMED: Int increased since suspect reading
+                # This was a real blackout that started in previous cycle
+                self._log_event(
+                    timestamp=current_time,
+                    event_type='BLACKOUT_CONFIRMED',
+                    meter_name=meter_name,
+                    details=f'Confirmed from suspect state. Start: {suspect_state.get("suspect_timestamp")}',
+                    count_before=str(prev_intr),
+                    count_after=str(intr)
+                )
+                # Also log the main BLACKOUT event
+                self._log_event(
+                    timestamp=current_time,
+                    event_type='BLACKOUT',
+                    meter_name=meter_name,
+                    details=f'Line blackout detected (Freq=0 with Int increase)',
+                    count_before=str(prev_intr),
+                    count_after=str(intr)
+                )
+            
+            elif freq > 0:
+                # Was comm error or false positive, not blackout (recovered without Int increase)
+                self._log_event(
+                    timestamp=current_time,
+                    event_type='SUSPECT_RESOLVED',
+                    meter_name=meter_name,
+                    details='Freq recovered, no Int increase - was comm error or glitch',
+                    count_before=str(prev_intr) if prev_intr is not None else '',
+                    count_after=str(intr)
+                )
+            
+            # Clear suspect state
+            suspect_state['pending_confirmation'] = False
+            suspect_state['suspect_timestamp'] = None
+            self._meter_suspect_state[meter_name] = suspect_state
+        
+        # Current cycle detection
+        if freq == 0:
+            if last_intr is not None and intr > last_intr:
+                # FEATURE 6: Immediate detection if Freq=0 AND Int already increased
+                # This catches ongoing blackout
+                self._log_event(
+                    timestamp=current_time,
+                    event_type='BLACKOUT',
+                    meter_name=meter_name,
+                    details='Line blackout (Freq=0 with Int increase)',
+                    count_before=str(last_intr),
+                    count_after=str(intr)
+                )
+            elif intr == 0 and (last_intr == 0 or last_intr is None):
+                # SUSPECT state: Freq=0, Int=0 (rare on UPS)
+                # Option C: Defer confirmation to next poll
+                suspect_state['suspect_timestamp'] = current_time
+                suspect_state['suspect_last_int'] = intr
+                suspect_state['pending_confirmation'] = True
+                self._meter_suspect_state[meter_name] = suspect_state
+                # Don't log yet - wait for next poll to confirm
+        
+        # Update last valid Int (only if not -1)
+        if intr_val != -1:
+            self._meter_last_valid_int[meter_name] = intr
+        
+        return True, reg_values
+
+    def _write_slow_csv(self):
+        """Write latest values to main CSV (60s intervals)."""
+        try:
+            # Ensure CSV file exists and is open before writing
+            self._ensure_csv_file()
+            
+            for i, meter in enumerate(self.meters):
+                meter_name = getattr(meter, 'name', f"Meter_{i+1}")
+                state = self._meter_state.get(meter_name, {})
+                values = state.get('latest_values')
+                
+                if not values:
+                    continue
+                
+                # Build row with same format as before
+                formatted_row = [
+                    getattr(meter, 'device_address', i + 1),
+                    meter_name
+                ]
+                for j, value in enumerate(values):
+                    if j == 0:  # Timestamp - keep as-is
+                        formatted_row.append(value)
+                        # Insert model after time
+                        formatted_row.append(getattr(meter, 'model', 'Unknown'))
+                    else:
+                        param_name = self.parameters[j] if j < len(self.parameters) else "Unknown"
+                        formatted_value = format_csv_value(value, param_name)
+                        formatted_row.append(formatted_value)
+                
+                self._write_row_safe(formatted_row)
+                
+        except Exception as e:
+            self.error_logger.error(f"Slow CSV write failed: {e}")
+
+    def _detect_and_repair_corruption(self):
+        """
+        Check existing CSV for concatenated lines on startup.
+        Repairs if found (e.g., '2026-01-18 11:33:35...,DG_Changeover,2026-01-18 11:32:17').
+        """
+        if not os.path.exists(self.csv_path):
+            return
+            
+        # Read first 100 lines to detect corruption pattern
+        try:
+            with open(self.csv_path, 'r', newline='') as f:
+                lines = f.readlines()[:100]
+        except:
+            return
+            
+        # Pattern: Two ISO timestamps in one line = concatenation
+        timestamp_pattern = r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
+        
+        # Check each line for multiple timestamps
+        corruption_detected = False
+        for line in lines:
+            matches = re.findall(timestamp_pattern, line)
+            if len(matches) > 1:  # More than one timestamp in a single line
+                corruption_detected = True
+                break
+        
+        if corruption_detected:
+            self.error_logger.warning("CSV corruption detected (concatenated timestamps). Repairing...")
+            self._repair_concatenated_lines()
+    
+    def _repair_concatenated_lines(self):
+        """
+        Split concatenated records and rewrite clean file atomically.
+        """
+        csv_path = Path(self.csv_path)
+        temp_path = csv_path.with_suffix('.repair.tmp')
+        
+        try:
+            # Read entire file
+            with open(csv_path, 'r', newline='') as src:
+                content = src.read()
+            
+            # Find all timestamps with surrounding context
+            timestamp_pattern = r'(\d+,\w+,\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\w+(?:,[\d.]+)*)'
+            
+            # Split by timestamp pattern to extract individual records
+            header = create_formatted_csv_header(self.parameters)
+            expected_cols = len(header)
+            
+            with open(temp_path, 'w', newline='') as dst:
+                writer = csv.writer(dst)
+                writer.writerow(header)
+                
+                # Read original file again as CSV
+                with open(csv_path, 'r', newline='') as src:
+                    reader = csv.reader(src)
+                    next(reader, None)  # Skip header
+                    
+                    for row in reader:
+                        if not row or len(row) < 3:
+                            continue
+                        
+                        # If row is too long, it's concatenated
+                        if len(row) > expected_cols:
+                            # Try to split it into multiple records
+                            # Find timestamp indices (column index 2)
+                            timestamp_indices = []
+                            for i, cell in enumerate(row):
+                                if re.match(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}', cell):
+                                    timestamp_indices.append(i)
+                            
+                            if len(timestamp_indices) > 1:
+                                # Split at each timestamp
+                                for idx, ts_pos in enumerate(timestamp_indices):
+                                    # Extract record: go back 2 columns for Device_ID and Meter_Name
+                                    start_pos = ts_pos - 2
+                                    if start_pos < 0:
+                                        start_pos = 0
+                                    
+                                    # End position is before next timestamp or end of row
+                                    if idx + 1 < len(timestamp_indices):
+                                        end_pos = timestamp_indices[idx + 1] - 2
+                                    else:
+                                        end_pos = len(row)
+                                    
+                                    record = row[start_pos:end_pos]
+                                    if len(record) >= 3:  # At least ID, Name, Time
+                                        writer.writerow(record[:expected_cols])
+                            else:
+                                # Just truncate to expected columns
+                                writer.writerow(row[:expected_cols])
+                        else:
+                            # Normal row
+                            writer.writerow(row[:expected_cols])
+            
+            # Atomic replace
+            os.replace(temp_path, csv_path)
+            self.error_logger.info("CSV corruption repaired successfully")
+            
+        except Exception as e:
+            self.error_logger.error(f"Repair failed: {e}")
+            if temp_path.exists():
+                temp_path.unlink()
 
     def close(self):
-        """Closes the CSV file safely."""
+        """Closes all CSV files safely."""
+        # Close main CSV
         if hasattr(self, 'csv_file') and self.csv_file is not None and not self.csv_file.closed:
             try:
+                self.csv_file.flush()
                 self.csv_file.close()
             except Exception as e:
                 print(f"Error closing CSV file: {e}")
-
-    # --- Rolling retention helpers ---
-    def _maybe_prune_old_rows(self):
-        """
-        Prune CSV rows older than retention_days.
-
-        To avoid heavy I/O on every cycle, this runs at most once per hour.
-        """
-        now = time.time()
-        # Run at most once per hour
-        if now - self._last_prune_epoch < 3600:
-            return
-        self._last_prune_epoch = now
-        try:
-            self._prune_csv_older_than(self.retention_days)
-        except Exception as e:
-            # Best-effort: never break logging due to retention maintenance
-            print(f"Retention prune skipped due to error: {e}")
-
-    def _prune_csv_older_than(self, days):
-        """
-        Rewrite the CSV keeping only rows whose timestamp column is within the last `days`.
-
-        Assumes the CSV header is: [Device_ID, Meter_Name, Time, Model, ...].
-        The Time column index is 2 and formatted as '%Y-%m-%d %H:%M:%S'.
-        """
-        if not self.csv_path:
-            return
-        csv_path = Path(self.csv_path)
-        if not csv_path.exists():
-            return
-
-        # Close current writer to allow safe rewrite
-        try:
-            if self.csv_file and not self.csv_file.closed:
-                self.csv_file.flush()
-                self.csv_file.close()
-        except Exception:
-            pass
-
-        cutoff = datetime.now() - timedelta(days=days)
-        tmp_path = csv_path.with_suffix(csv_path.suffix + '.tmp')
-
-        try:
-            kept_rows = 0
-            with open(csv_path, 'r', newline='') as fin, open(tmp_path, 'w', newline='') as fout:
-                reader = csv.reader(fin)
-                writer = csv.writer(fout)
-
-                header = next(reader, None)
-                if header is None:
-                    # Empty file; nothing to do
-                    pass
-                else:
-                    # Write header as-is
-                    writer.writerow(header)
-                    time_col_idx = 2  # Device_ID, Meter_Name, Time, Model, ...
-                    for row in reader:
-                        # Basic guard: malformed rows
-                        if len(row) <= time_col_idx:
-                            continue
-                        ts_str = row[time_col_idx]
-                        try:
-                            ts = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S')
-                        except Exception:
-                            # If unparsable, keep the row (avoid accidental data loss)
-                            writer.writerow(row)
-                            kept_rows += 1
-                            continue
-
-                        if ts >= cutoff:
-                            writer.writerow(row)
-                            kept_rows += 1
-
-            # Atomically replace original with pruned file
-            os_replace = getattr(__import__('os'), 'replace')
-            os_replace(str(tmp_path), str(csv_path))
-        except Exception as e:
-            # Cleanup temp on failure
+        
+        # Close events CSV with final sync
+        if hasattr(self, 'events_file') and self.events_file is not None and not self.events_file.closed:
             try:
-                if tmp_path.exists():
-                    tmp_path.unlink()
-            except Exception:
-                pass
-            raise e
-        finally:
-            # Reopen the CSV for appending and reset writer
-            try:
-                self.csv_file = open(self.csv_path, 'a', newline='')
-                self.csv_writer = csv.writer(self.csv_file)
+                self.events_file.flush()
+                os.fsync(self.events_file.fileno())
+                self.events_file.close()
             except Exception as e:
-                print(f"Error reopening CSV after prune: {e}")
+                print(f"Error closing events file: {e}")
+
+    # --- Safe Retention with Timestamped Archives ---
+    
+    def _get_csv_start_time(self):
+        """Get earliest timestamp in current CSV, or now if empty."""
+        try:
+            if os.path.exists(self.csv_path) and os.path.getsize(self.csv_path) > 100:
+                with open(self.csv_path, 'r', newline='') as f:
+                    reader = csv.reader(f)
+                    header = next(reader, None)
+                    if not header:
+                        return datetime.now()
+                    
+                    # Time column is index 2: Device_ID, Meter_Name, Time...
+                    time_idx = 2 if len(header) > 2 else 0
+                    
+                    first_row = next(reader, None)
+                    if first_row and len(first_row) > time_idx:
+                        time_str = first_row[time_idx]
+                        return datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
+        except Exception as e:
+            self.error_logger.debug(f"Could not read CSV start time: {e}")
+        
+        return datetime.now()
+    
+    def _maybe_prune_old_rows(self):
+        """Check hourly if retention rotation is needed (file size > threshold)."""
+        current_time = time.time()
+        
+        if current_time - self._last_prune_check < self.prune_check_interval:
+            return
+        
+        self._last_prune_check = current_time
+        
+        # Sanity check: Don't rotate if time is suspicious (year < 2024)
+        if datetime.now().year < 2024:
+            self.error_logger.warning("Suspicious system time (year<2024), skipping retention rotation")
+            return
+        
+        try:
+            if not os.path.exists(self.csv_path):
+                return
+                
+            file_size = os.path.getsize(self.csv_path)
+            # Only rotate if file exceeds threshold (default 1MB)
+            if file_size < self.rotation_size_threshold:
+                return
+            
+            self._perform_safe_rotation()
+            
+        except Exception as e:
+            self.error_logger.error(f"Retention check failed: {e}")
+
+    def _perform_safe_rotation(self):
+        """
+        Rotate CSV to backup with timestamp naming [START]_TO_[END].
+        Atomic operation: copy -> verify -> fsync -> truncate original.
+        """
+        try:
+            # Get time range of current file
+            start_time = self._current_csv_start_time or self._get_csv_start_time()
+            end_time = datetime.now()
+            
+            # Format: 2026-01-18_103000_TO_2026-01-25_143000.csv
+            start_str = start_time.strftime('%Y-%m-%d_%H%M%S')
+            end_str = end_time.strftime('%Y-%m-%d_%H%M%S')
+            archive_name = f"{start_str}_TO_{end_str}.csv"
+            archive_path = self.backup_dir / archive_name
+            
+            # Step 1: Copy current file to backup (with verification)
+            self.error_logger.info(f"Rotating CSV to backup: {archive_name}")
+            
+            # Copy with shutil (preserves metadata)
+            shutil.copy2(self.csv_path, archive_path)
+            
+            # Verify copy succeeded (size match)
+            if not archive_path.exists():
+                raise IOError("Archive file not created after copy")
+            
+            original_size = os.path.getsize(self.csv_path)
+            archive_size = archive_path.stat().st_size
+            
+            if archive_size < original_size * 0.9:  # Allow 10% tolerance
+                raise IOError(f"Archive size mismatch: {archive_size} vs {original_size}")
+            
+            # Step 2: Sync archive to disk (ensure it's safe before truncating)
+            with open(archive_path, 'a') as f:
+                f.flush()
+                os.fsync(f.fileno())
+            
+            # Step 3: Now safe to truncate original file
+            # Close current handle
+            try:
+                if self.csv_file and not self.csv_file.closed:
+                    self.csv_file.flush()
+                    self.csv_file.close()
+            except:
+                pass
+            
+            # Truncate file and write fresh headers
+            with open(self.csv_path, 'w', newline='') as f:
+                writer = csv.writer(f)
+                headers = create_formatted_csv_header(self.parameters)
+                writer.writerow(headers)
+                f.flush()
+                os.fsync(f.fileno())
+            
+            # Reopen for append
+            self.csv_file = open(self.csv_path, 'a', newline='', buffering=1)
+            self.csv_writer = csv.writer(self.csv_file)
+            
+            # Update start time for next archive
+            self._current_csv_start_time = datetime.now()
+            
+            # Log rotation event
+            self._log_system_event({
+                'type': 'CSV_ROTATION',
+                'archive_file': archive_name,
+                'rows_moved': 'retained_full_file',
+                'size_mb': round(archive_size / (1024*1024), 2)
+            })
+            
+            self.error_logger.info(f"CSV rotation complete: {archive_name} ({archive_size} bytes)")
+            
+            # Step 4: Cleanup old archives (>14 days)
+            self._cleanup_old_archives()
+            
+        except Exception as e:
+            self.error_logger.error(f"Rotation failed: {e}")
+            # Ensure file handle is valid after failure
+            self._ensure_csv_handle()
+
+    def _cleanup_old_archives(self):
+        """Remove archives older than retention_days."""
+        try:
+            cutoff = datetime.now() - timedelta(days=self.retention_days)
+            removed_count = 0
+            
+            for archive_file in self.backup_dir.glob("*.csv"):
+                try:
+                    # Parse filename for end timestamp
+                    # Format: 2026-01-18_103000_TO_2026-01-25_143000.csv
+                    name = archive_file.name
+                    if '_TO_' in name:
+                        end_part = name.split('_TO_')[1]
+                        end_timestamp = end_part.replace('.csv', '')
+                        end_dt = datetime.strptime(end_timestamp, '%Y-%m-%d_%H%M%S')
+                        
+                        if end_dt < cutoff:
+                            archive_file.unlink()
+                            removed_count += 1
+                            self.error_logger.debug(f"Removed old archive: {archive_file.name}")
+                            
+                except Exception as e:
+                    self.error_logger.warning(f"Could not parse archive date {archive_file}: {e}")
+            
+            if removed_count > 0:
+                self.error_logger.info(f"Cleaned up {removed_count} old archives")
+                
+        except Exception as e:
+            self.error_logger.error(f"Archive cleanup failed: {e}")
+
+    def _ensure_csv_handle(self):
+        """Reopen CSV file handles if closed or invalid."""
+        try:
+            if not hasattr(self, 'csv_file') or self.csv_file.closed:
+                self.csv_file = open(self.csv_path, 'a', newline='', buffering=1)
+                self.csv_writer = csv.writer(self.csv_file)
+        except Exception as e:
+            self.error_logger.error(f"Failed to reopen CSV: {e}")

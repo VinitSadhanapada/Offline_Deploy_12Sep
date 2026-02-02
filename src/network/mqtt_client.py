@@ -55,7 +55,7 @@ def _load_mqtt_config():
     cfg = dict(DEFAULTS)
     # Prefer project config file if present
     # Prefer externalized config at /home/pi/meter_config, then local project copy
-    from paths import get_config_dir
+    from src.utils.paths import get_config_dir
     cfg_dir = get_config_dir()
     cfg_path = os.path.join(str(cfg_dir), "config.json")
     if not os.path.exists(cfg_path):
