@@ -40,8 +40,10 @@ echo "Press Q to quit at any time"
 echo ""
 sleep 1
 
-# Run the UI (now in src/dashboard/)
-python3 src/dashboard/terminal_meter_ui.py
+
+# Run the UI using absolute path (force Desktop path)
+PYTHON_UI_PATH="$HOME/Desktop/offline-setup-12Sep/src/dashboard/terminal_meter_ui.py"
+python3 "$PYTHON_UI_PATH"
 
 # Exit status
 EXIT_CODE=$?

@@ -22,8 +22,14 @@ declare -a WARNING_TESTS
 # Logging
 TEST_LOG="/tmp/setup_test_$(date +%Y%m%d_%H%M%S).log"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Project root is one level up from tests/
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Detect whether we're in the project root or in tests/ subfolder
+if [ -d "$SCRIPT_DIR/src" ] && [ -d "$SCRIPT_DIR/config" ]; then
+    # Script is at project root
+    PROJECT_ROOT="$SCRIPT_DIR"
+else
+    # Script is in tests/ subdirectory
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
 
 # Redirect all output to both console and log
 exec > >(tee -a "$TEST_LOG") 2>&1
