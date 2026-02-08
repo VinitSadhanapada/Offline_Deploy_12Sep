@@ -23,6 +23,7 @@ rtc_drift_log.csv
 # Data files (exclude actual readings, keep structure)
 data/csv/
 !data/csv/.gitkeep
+data/rtc_state.json
 exports/
 !exports/.gitkeep
 COPIED_DATA/
