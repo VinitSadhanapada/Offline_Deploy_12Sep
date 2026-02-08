@@ -41,7 +41,7 @@ class RTCTimeSanitizer:
     Attributes:
         state: Dictionary containing last_known_good_time, rtc_battery_ok, last_boot_time
         last_rtc_check: Timestamp of last RTC validation
-        rtc_available: Whether RTC (DS3231 via I2C or hwclock) is available
+        rtc_available: Whether RTC (DS3231 via I2C) is available
     """
     
     def __init__(self, state_file_path=None):
@@ -68,7 +68,7 @@ class RTCTimeSanitizer:
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
         
-        # Check RTC availability - prefer rtc_module (I2C), fallback to hwclock
+        # Check RTC availability via rtc_module (I2C)
         self.rtc_available, self.rtc_method = self._check_rtc_available()
         if self.rtc_available:
             self.logger.debug(f"RTC available via {self.rtc_method}")
@@ -84,12 +84,12 @@ class RTCTimeSanitizer:
     
     def _check_rtc_available(self):
         """
-        Check if RTC is available via rtc_module (I2C) or hwclock.
+        Check if RTC is available via rtc_module (I2C).
         
         Returns:
-            tuple: (bool available, str method) - method is 'i2c', 'hwclock', or None
+            tuple: (bool available, str method) - method is 'i2c' or None
         """
-        # First try rtc_module (direct I2C to DS3231)
+        # Use rtc_module (direct I2C to DS3231) - no hwclock fallback
         if RTC_MODULE_AVAILABLE:
             try:
                 if is_rtc_available():
@@ -98,28 +98,7 @@ class RTCTimeSanitizer:
             except Exception as e:
                 self.logger.debug(f"rtc_module check failed: {e}")
         
-        # Fallback to hwclock
-        try:
-            # Try to run hwclock with version flag (less intrusive than reading time)
-            result = subprocess.run(
-                ['which', 'hwclock'],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
-            if result.returncode == 0:
-                # hwclock exists, now check if we can actually use it
-                result = subprocess.run(
-                    ['sudo', 'hwclock', '-r'],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
-                if result.returncode == 0:
-                    return True, 'hwclock'
-            return False, None
-        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-            return False, None
+        return False, None
         
     def _load_state(self):
         """
@@ -158,7 +137,7 @@ class RTCTimeSanitizer:
     
     def get_rtc_time(self):
         """
-        Read hardware RTC time via I2C (DS3231) or hwclock command.
+        Read hardware RTC time via I2C (DS3231).
         
         Returns:
             datetime: RTC time, or None if read failed or RTC unavailable
@@ -167,7 +146,7 @@ class RTCTimeSanitizer:
         if not self.rtc_available:
             return None
         
-        # Try I2C method first (preferred for DS3231)
+        # Use I2C method (DS3231 via rtc_module)
         if self.rtc_method == 'i2c' and RTC_MODULE_AVAILABLE:
             try:
                 rtc = get_rtc()
@@ -179,71 +158,7 @@ class RTCTimeSanitizer:
             except Exception as e:
                 self.logger.debug(f"I2C RTC read failed: {e}")
         
-        # Fallback to hwclock
-        if self.rtc_method == 'hwclock' or (self.rtc_method == 'i2c' and not RTC_MODULE_AVAILABLE):
-            return self._get_rtc_time_hwclock()
-        
         return None
-    
-    def _get_rtc_time_hwclock(self):
-        """
-        Read RTC time using hwclock command (fallback method).
-        
-        Returns:
-            datetime: RTC time, or None if read failed
-        """
-        try:
-            result = subprocess.run(
-                ['sudo', 'hwclock', '-r'], 
-                capture_output=True, 
-                text=True, 
-                timeout=5
-            )
-            
-            if result.returncode != 0:
-                self.logger.error(f"hwclock returned error: {result.stderr}")
-                return None
-            
-            # Parse output - format varies by system
-            # Common formats:
-            #   "2026-01-25 14:30:15.123456+00:00"
-            #   "Sat 25 Jan 2026 02:30:15 PM UTC  .123456 seconds"
-            rtc_str = result.stdout.strip()
-            
-            # Try ISO format first
-            try:
-                # Remove timezone and microseconds for parsing
-                clean_str = rtc_str.split('.')[0].split('+')[0].strip()
-                return datetime.strptime(clean_str, "%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                pass
-            
-            # Try alternate format (hwclock verbose)
-            try:
-                # Extract date/time components
-                import re
-                match = re.search(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})', rtc_str)
-                if match:
-                    return datetime(
-                        int(match.group(1)), int(match.group(2)), int(match.group(3)),
-                        int(match.group(4)), int(match.group(5)), int(match.group(6))
-                    )
-            except:
-                pass
-            
-            self.logger.error(f"Could not parse RTC output: {rtc_str}")
-            return None
-            
-        except subprocess.TimeoutExpired:
-            self.logger.error("hwclock command timed out")
-            return None
-        except FileNotFoundError:
-            self.logger.error("hwclock command not found")
-            return None
-        except Exception as e:
-            self.logger.error(f"RTC read failed: {e}")
-            return None
-            return None
     
     def set_system_time(self, dt):
         """
@@ -279,19 +194,27 @@ class RTCTimeSanitizer:
     
     def sync_system_to_rtc(self):
         """
-        Sync system time from RTC using hwclock --hctosys.
+        Sync system time from RTC using direct I2C read and date command.
         
         Returns:
             bool: True if successful
         """
         try:
+            # Get RTC time via I2C (preferred) or fallback
+            rtc_time = self.get_rtc_time()
+            if rtc_time is None:
+                self.logger.error("Cannot sync - RTC time unavailable")
+                return False
+            
+            # Set system time using date command
+            time_str = rtc_time.strftime("%Y-%m-%d %H:%M:%S")
             subprocess.run(
-                ['sudo', 'hwclock', '--hctosys'],
+                ['sudo', 'date', '-s', time_str],
                 check=True, 
                 timeout=5,
                 capture_output=True
             )
-            self.logger.info("System time synced from RTC")
+            self.logger.info(f"System time synced from RTC: {time_str}")
             return True
         except Exception as e:
             self.logger.error(f"Failed to sync from RTC: {e}")
