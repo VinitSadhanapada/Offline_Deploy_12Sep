@@ -237,7 +237,7 @@ class MeterManager:
         data_dir.mkdir(parents=True, exist_ok=True)
         self.csv_path = str(data_dir / "DATA_ALL.csv")
         self.data_dir = data_dir
-        
+
         # Setup backup directory for rotated archives
         self.backup_dir = data_dir / "backup"
         self.backup_dir.mkdir(exist_ok=True)
@@ -269,10 +269,10 @@ class MeterManager:
         
         # Get CSV start time for archive naming
         self._current_csv_start_time = self._get_csv_start_time()
-        
+
         # Detect and repair any CSV corruption on startup
         self._detect_and_repair_corruption()
-        
+
         # Setup events CSV (fast, immediate flush for blackout detection)
         self.events_path = data_dir / "EVENTS.csv"
         self._init_events_csv()
@@ -753,15 +753,13 @@ class MeterManager:
         try:
             # Ensure CSV file exists and is open before writing
             self._ensure_csv_file()
-            
+            # ...existing code...
             for i, meter in enumerate(self.meters):
                 meter_name = getattr(meter, 'name', f"Meter_{i+1}")
                 state = self._meter_state.get(meter_name, {})
                 values = state.get('latest_values')
-                
                 if not values:
                     continue
-                
                 # Build row with same format as before
                 formatted_row = [
                     getattr(meter, 'device_address', i + 1),
@@ -776,9 +774,8 @@ class MeterManager:
                         param_name = self.parameters[j] if j < len(self.parameters) else "Unknown"
                         formatted_value = format_csv_value(value, param_name)
                         formatted_row.append(formatted_value)
-                
                 self._write_row_safe(formatted_row)
-                
+            # ...existing code...
         except Exception as e:
             self.error_logger.error(f"Slow CSV write failed: {e}")
 
