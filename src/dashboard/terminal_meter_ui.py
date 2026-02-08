@@ -5,6 +5,7 @@ Interactive command-line interface for viewing meter readings and managing the s
 without a desktop environment.
 """
 
+
 import curses
 import os
 import sys
@@ -15,6 +16,9 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+
+# Ensure project root is in sys.path for 'src' imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 
 def _find_project_root() -> Path:
@@ -241,88 +245,321 @@ class TerminalMeterUI:
         self.stdscr.refresh()
     
     def export_csv_data(self):
-        """Prepare CSV files for download and show instructions."""
-        self.stdscr.clear()
-        self.draw_header()
-        
+        """Prepare CSV files for download with date selection and show instructions."""
         height, width = self.stdscr.getmaxyx()
+        y_pos = 5  # Initialize early so exception handler always has it
         
         try:
+            self.stdscr.clear()
+            self.draw_header()
+            
             self.stdscr.attron(curses.A_BOLD | curses.color_pair(1))
             self.stdscr.addstr(3, 2, "EXPORT CSV DATA")
             self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
             
-            # Create export directory
             export_dir = PROJECT_ROOT / "exports"
             export_dir.mkdir(exist_ok=True)
             
-            y_pos = 5
-            self.stdscr.addstr(y_pos, 2, "Preparing files for download...")
+            self.stdscr.addstr(y_pos, 2, "Scanning available dates in DATA_ALL.csv...")
             self.stdscr.refresh()
             y_pos += 2
             
-            # Copy all CSV files to export directory
-            csv_files = list(self.csv_dir.glob("*.csv"))
+            # Find DATA_ALL.csv
+            data_csv = self.csv_dir / "DATA_ALL.csv"
+            if not data_csv.exists():
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(y_pos, 2, "DATA_ALL.csv not found!")
+                self.stdscr.attroff(curses.color_pair(4))
+                self.draw_footer("view")
+                self.stdscr.refresh()
+                return
             
-            if csv_files:
-                import shutil
-                for csv_file in csv_files:
-                    dest = export_dir / csv_file.name
-                    shutil.copy2(csv_file, dest)
-                    if y_pos < height - 8:
-                        self.stdscr.attron(curses.color_pair(2))
-                        self.stdscr.addstr(y_pos, 4, f"✓ Copied: {csv_file.name}"[:width-6])
-                        self.stdscr.attroff(curses.color_pair(2))
-                        y_pos += 1
+            # Read CSV with standard library (no pandas needed)
+            with open(data_csv, 'r', newline='') as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                if not header or len(header) < 3:
+                    self.stdscr.attron(curses.color_pair(4))
+                    self.stdscr.addstr(y_pos, 2, "CSV has too few columns!")
+                    self.stdscr.attroff(curses.color_pair(4))
+                    self.draw_footer("view")
+                    self.stdscr.refresh()
+                    return
+                all_rows = list(reader)
+            
+            # Find time column index
+            time_col_idx = None
+            for ci, col_name in enumerate(header):
+                if col_name.lower() in ['time', 'timestamp', 'date']:
+                    time_col_idx = ci
+                    break
+            if time_col_idx is None:
+                time_col_idx = 2  # Default: 3rd column (Device_ID, Meter_Name, Time, ...)
+            
+            # Parse dates from time column and build row-to-date mapping
+            from datetime import date as date_type
+            unique_dates_set = set()
+            rows_with_dates = []  # (date_obj, row)
+            for row in all_rows:
+                if len(row) <= time_col_idx:
+                    continue
+                time_str = row[time_col_idx].strip()
+                parsed_date = None
+                for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d'):
+                    try:
+                        parsed_date = datetime.strptime(time_str, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+                if parsed_date:
+                    unique_dates_set.add(parsed_date)
+                    rows_with_dates.append((parsed_date, row))
+            
+            if not rows_with_dates:
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(y_pos, 2, "No valid timestamps found in data!")
+                self.stdscr.attroff(curses.color_pair(4))
+                self.draw_footer("view")
+                self.stdscr.refresh()
+                return
+            
+            unique_dates = sorted(unique_dates_set)
+            if not unique_dates:
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(y_pos, 2, "No dates found in data!")
+                self.stdscr.attroff(curses.color_pair(4))
+                self.draw_footer("view")
+                self.stdscr.refresh()
+                return
+            
+            # --- Date Selection UI ---
+            start_idx = 0
+            end_idx = len(unique_dates) - 1
+            active_selector = 'start'  # Which selector is being moved
+            scroll_offset = 0
+            # Reserve lines: header(3) + title + instructions + footer(2)
+            max_visible = max(3, height - 14)
+            
+            selecting = True
+            while selecting:
+                self.stdscr.clear()
+                self.draw_header()
                 
-                y_pos += 1
+                self.stdscr.attron(curses.A_BOLD | curses.color_pair(1))
+                self.stdscr.addstr(3, 2, "EXPORT CSV DATA - Select Date Range")
+                self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
+                
+                row = 5
+                # Instructions
+                self.stdscr.attron(curses.color_pair(3))
+                self.stdscr.addstr(row, 2, "TAB: Switch selector | UP/DOWN: Move | ENTER: Confirm | Q: Cancel")
+                self.stdscr.attroff(curses.color_pair(3))
+                row += 1
+                
+                # Show which selector is active
+                self.stdscr.attron(curses.color_pair(6) | curses.A_BOLD)
+                self.stdscr.addstr(row, 2, f"Active: {'[S] Start date' if active_selector == 'start' else '[E] End date'}")
+                self.stdscr.attroff(curses.color_pair(6) | curses.A_BOLD)
+                row += 2
+                
+                # Auto-scroll to keep active selector visible
+                active_idx = start_idx if active_selector == 'start' else end_idx
+                if active_idx < scroll_offset:
+                    scroll_offset = active_idx
+                elif active_idx >= scroll_offset + max_visible:
+                    scroll_offset = active_idx - max_visible + 1
+                
+                # Draw date list with scroll
+                visible_dates = unique_dates[scroll_offset:scroll_offset + max_visible]
+                
+                # Scroll indicator (top)
+                if scroll_offset > 0:
+                    self.stdscr.addstr(row, 4, f"  ... {scroll_offset} more above ..."[:width-6])
+                    row += 1
+                
+                for vi, d in enumerate(visible_dates):
+                    actual_idx = scroll_offset + vi
+                    
+                    # Build marker
+                    if actual_idx == start_idx and actual_idx == end_idx:
+                        marker = "[S=E]"
+                        color = curses.color_pair(5) | curses.A_BOLD
+                    elif actual_idx == start_idx:
+                        marker = " [S] "
+                        color = curses.color_pair(2) | curses.A_BOLD
+                    elif actual_idx == end_idx:
+                        marker = " [E] "
+                        color = curses.color_pair(6) | curses.A_BOLD
+                    else:
+                        marker = "     "
+                        color = curses.color_pair(0)
+                    
+                    line_text = f"{marker} {d}"
+                    try:
+                        self.stdscr.attron(color)
+                        self.stdscr.addstr(row, 4, line_text[:width-6])
+                        self.stdscr.attroff(color)
+                    except curses.error:
+                        pass
+                    row += 1
+                
+                # Scroll indicator (bottom)
+                remaining_below = len(unique_dates) - (scroll_offset + max_visible)
+                if remaining_below > 0:
+                    try:
+                        self.stdscr.addstr(row, 4, f"  ... {remaining_below} more below ..."[:width-6])
+                    except curses.error:
+                        pass
+                
+                # Show current selection summary
+                try:
+                    summary_row = height - 3
+                    self.stdscr.attron(curses.color_pair(2))
+                    self.stdscr.addstr(summary_row, 2,
+                        f"Range: {unique_dates[start_idx]} to {unique_dates[end_idx]}"[:width-4])
+                    self.stdscr.attroff(curses.color_pair(2))
+                except curses.error:
+                    pass
+                
+                self.draw_footer("view")
+                self.stdscr.refresh()
+                
+                key = self.stdscr.getch()
+                
+                if key in [ord('q'), ord('Q'), 27]:  # Q or Escape
+                    return
+                elif key in [ord('\n'), curses.KEY_ENTER, 10, 13]:  # Enter
+                    selecting = False
+                elif key in [ord('\t'), ord('s'), ord('e')]:  # Tab or s/e to switch
+                    if key == ord('s'):
+                        active_selector = 'start'
+                    elif key == ord('e'):
+                        active_selector = 'end'
+                    else:
+                        active_selector = 'end' if active_selector == 'start' else 'start'
+                elif key == curses.KEY_UP:
+                    if active_selector == 'start' and start_idx > 0:
+                        start_idx -= 1
+                    elif active_selector == 'end' and end_idx > 0:
+                        end_idx -= 1
+                    # Enforce start <= end
+                    if start_idx > end_idx:
+                        if active_selector == 'start':
+                            start_idx = end_idx
+                        else:
+                            end_idx = start_idx
+                elif key == curses.KEY_DOWN:
+                    if active_selector == 'start' and start_idx < len(unique_dates) - 1:
+                        start_idx += 1
+                    elif active_selector == 'end' and end_idx < len(unique_dates) - 1:
+                        end_idx += 1
+                    # Enforce start <= end
+                    if start_idx > end_idx:
+                        if active_selector == 'start':
+                            start_idx = end_idx
+                        else:
+                            end_idx = start_idx
+            
+            # --- Filter and Export ---
+            start_date = unique_dates[start_idx]
+            end_date = unique_dates[end_idx]
+            
+            self.stdscr.clear()
+            self.draw_header()
+            
+            self.stdscr.attron(curses.A_BOLD | curses.color_pair(1))
+            self.stdscr.addstr(3, 2, "EXPORT CSV DATA")
+            self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
+            
+            y_pos = 5
+            self.stdscr.addstr(y_pos, 2, f"Filtering: {start_date} to {end_date}...")
+            self.stdscr.refresh()
+            y_pos += 2
+            
+            # Filter rows by date range
+            filtered = [(d, row) for d, row in rows_with_dates if start_date <= d <= end_date]
+            
+            if not filtered:
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(y_pos, 2, "No data found for selected date range!")
+                self.stdscr.attroff(curses.color_pair(4))
+                self.draw_footer("view")
+                self.stdscr.refresh()
+                return
+            
+            # Group rows by date
+            from collections import defaultdict
+            rows_by_date = defaultdict(list)
+            for d, row in filtered:
+                rows_by_date[d].append(row)
+            
+            # Export one CSV per day
+            exported_files = []
+            total_rows = 0
+            for single_date in sorted(rows_by_date.keys()):
+                day_rows = rows_by_date[single_date]
+                out_name = f"DATA_{single_date}.csv"
+                out_path = export_dir / out_name
+                with open(out_path, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(header)
+                    writer.writerows(day_rows)
+                exported_files.append(out_name)
+                total_rows += len(day_rows)
+                
+                if y_pos < height - 10:
+                    self.stdscr.attron(curses.color_pair(2))
+                    self.stdscr.addstr(y_pos, 4, f"✓ {out_name} ({len(day_rows)} rows)"[:width-6])
+                    self.stdscr.attroff(curses.color_pair(2))
+                    y_pos += 1
+            
+            y_pos += 1
+            self.stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+            self.stdscr.addstr(y_pos, 2, f"Exported {len(exported_files)} file(s), {total_rows} total rows")
+            self.stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+            y_pos += 2
+            
+            # Show download instructions
+            if y_pos < height - 6:
                 self.stdscr.attron(curses.color_pair(1) | curses.A_BOLD)
-                self.stdscr.addstr(y_pos, 2, "Download Instructions (from your laptop):")
+                self.stdscr.addstr(y_pos, 2, "Download (from your laptop):")
                 self.stdscr.attroff(curses.color_pair(1) | curses.A_BOLD)
                 y_pos += 2
                 
-                # Get IP address
                 try:
                     import socket
-                    # Use socket trick to get actual LAN IP instead of loopback
                     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     s.connect(("8.8.8.8", 80))
                     ip_addr = s.getsockname()[0]
                     s.close()
-                except:
+                except Exception:
                     try:
+                        import socket
                         hostname = socket.gethostname()
                         ip_addr = socket.gethostbyname(hostname)
-                    except:
-                        ip_addr = "192.168.137.100"  # Fallback to configured static IP
+                    except Exception:
+                        ip_addr = "192.168.137.100"
                 
                 instructions = [
-                    f"1. From your laptop terminal, run:",
+                    f"scp pi@{ip_addr}:{export_dir}/*.csv ./",
                     f"",
-                    f"   scp -r pi@{ip_addr}:{export_dir}/*.csv ./meter_data/",
-                    f"",
-                    f"2. Or download individual file:",
-                    f"",
-                    f"   scp pi@{ip_addr}:{export_dir}/readings_all.csv ./",
-                    f"",
-                    f"3. Files are ready in: {export_dir}",
+                    f"Files ready in: {export_dir}",
                 ]
                 
                 for line in instructions:
-                    if y_pos < height - 3:
+                    if y_pos < height - 2:
                         self.stdscr.attron(curses.color_pair(3))
-                        self.stdscr.addstr(y_pos, 2, line[:width-4])
+                        self.stdscr.addstr(y_pos, 4, line[:width-6])
                         self.stdscr.attroff(curses.color_pair(3))
                         y_pos += 1
-            else:
-                self.stdscr.attron(curses.color_pair(4))
-                self.stdscr.addstr(y_pos, 2, "No CSV files found to export!")
-                self.stdscr.attroff(curses.color_pair(4))
         
         except Exception as e:
-            self.stdscr.attron(curses.color_pair(4))
-            self.stdscr.addstr(y_pos, 2, f"Error: {str(e)[:width-10]}")
-            self.stdscr.attroff(curses.color_pair(4))
+            try:
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(y_pos, 2, f"Error: {str(e)[:width-10]}")
+                self.stdscr.attroff(curses.color_pair(4))
+            except curses.error:
+                pass
         
         self.draw_footer("view")
         self.stdscr.refresh()
