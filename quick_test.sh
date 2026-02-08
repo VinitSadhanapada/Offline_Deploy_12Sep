@@ -1,1 +1,0 @@
-tests/quick_test.sh
