@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "name": "BikeParking",
+    "address": 1,
+    "model": "LG6400",
+    "location": "Mahamudra"
+  }
+]
