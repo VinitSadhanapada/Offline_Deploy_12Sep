@@ -20,21 +20,12 @@ from pathlib import Path
 # Ensure project root is in sys.path for 'src' imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+from src.utils.paths import find_project_root
+
 
 def _find_project_root() -> Path:
     """Find the project root directory by looking for key markers."""
-    script_path = Path(__file__).resolve()
-    
-    for parent in [script_path.parent, *script_path.parents]:
-        if (parent / "src").is_dir() and (parent / "config").is_dir():
-            return parent
-        if (parent / "venv").is_dir() and (parent / "src").is_dir():
-            return parent
-        if parent == Path.home() or parent == Path("/"):
-            break
-    
-    # Fallback: assume script is in src/dashboard/
-    return script_path.parent.parent.parent
+    return find_project_root(Path(__file__).resolve())
 
 
 PROJECT_ROOT = _find_project_root()

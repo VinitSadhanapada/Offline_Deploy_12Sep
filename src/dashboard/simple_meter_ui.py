@@ -5,17 +5,15 @@
 import sys
 import os
 from pathlib import Path
-def _find_project_root() -> Path:
-    script_path = Path(__file__).resolve()
-    for parent in [script_path.parent, *script_path.parents]:
-        if (parent / "src").is_dir() and (parent / "config").is_dir():
-            return parent
-        if (parent / "venv").is_dir() and (parent / "src").is_dir():
-            return parent
-        if parent == Path.home() or parent == Path("/"):
-            break
-    return script_path.parent.parent.parent
-PROJECT_ROOT = _find_project_root()
+
+# Bootstrap sys.path so src.utils imports work
+_bootstrap_root = Path(__file__).resolve().parent.parent.parent
+if str(_bootstrap_root) not in sys.path:
+    sys.path.insert(0, str(_bootstrap_root))
+
+from src.utils.paths import find_project_root
+
+PROJECT_ROOT = find_project_root(Path(__file__).resolve())
 SRC_PATH = str(PROJECT_ROOT / "src")
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
@@ -29,19 +27,9 @@ import json
 import re
 
 
+# Keep a thin alias for backward compatibility within this file
 def _find_project_root() -> Path:
-    """Find the project root directory by looking for key markers."""
-    script_path = Path(__file__).resolve()
-    
-    for parent in [script_path.parent, *script_path.parents]:
-        if (parent / "src").is_dir() and (parent / "config").is_dir():
-            return parent
-        if (parent / "venv").is_dir() and (parent / "src").is_dir():
-            return parent
-        if parent == Path.home() or parent == Path("/"):
-            break
-    
-    return script_path.parent.parent.parent
+    return find_project_root(Path(__file__).resolve())
 
 
 PROJECT_ROOT = _find_project_root()
@@ -861,20 +849,8 @@ class LiveReadingsWindow(tk.Toplevel):
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         # Use single consolidated CSV file
         csv_dir = str(PROJECT_ROOT / "data" / "csv")
-        single_csv = os.path.join(csv_dir, "readings_all.csv")
+        single_csv = os.path.join(csv_dir, "DATA_ALL.csv")
 
-        # Ensure CSV directory exists and provide a minimal CSV file if missing
-        try:
-            os.makedirs(csv_dir, exist_ok=True)
-            if not os.path.exists(single_csv):
-                import csv as _csv
-                with open(single_csv, "w", newline='') as _f:
-                    writer = _csv.writer(_f)
-                    # Minimal header expected by MeterManager/UI
-                    writer.writerow(["Device_ID", "Meter_Name", "Time", "Model"])
-        except Exception:
-            # Best-effort: continue without blocking the UI
-            pass
         self.tabs = {}
         tab = tk.Frame(self.notebook)
         # Add a canvas and scrollbar to the tab for scrolling
@@ -888,7 +864,7 @@ class LiveReadingsWindow(tk.Toplevel):
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.notebook.add(tab, text="readings_all")
+        self.notebook.add(tab, text="DATA_ALL")
         self.tabs[single_csv] = scroll_frame
         self.after(100, self.refresh)
 

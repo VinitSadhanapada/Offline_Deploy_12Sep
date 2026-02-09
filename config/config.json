@@ -6,9 +6,5 @@
   "PORT": "/dev/ttyUSB0",
   "ENABLE_MQTT": false,
   "ENABLE_RTC": true,
-  "LOG_LEVEL": "INFO",
-  "usb_copy": {
-    "enabled": true,
-    "eject_after_copy": true
-  }
+  "LOG_LEVEL": "INFO"
 }

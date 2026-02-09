@@ -31,30 +31,14 @@ from pathlib import Path
 from datetime import datetime
 import socket
 
+# Ensure project root is in sys.path for 'src' imports
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 def _find_project_root() -> Path:
-    """Find the project root directory by looking for key markers.
-    
-    Looks for: src/ directory, config/ directory, or venv/ directory.
-    Walks up from this script's location to find the project root.
-    """
-    script_path = Path(__file__).resolve()
-    
-    # Walk up directories looking for project markers
-    for parent in [script_path.parent, *script_path.parents]:
-        # Check for project structure markers
-        if (parent / "src").is_dir() and (parent / "config").is_dir():
-            return parent
-        if (parent / "venv").is_dir() and (parent / "src").is_dir():
-            return parent
-        if (parent / "config" / "config.json").exists():
-            return parent
-        # Stop at home directory or root
-        if parent == Path.home() or parent == Path("/"):
-            break
-    
-    # Fallback: assume script is in src/dashboard/, so go up 2 levels
-    return script_path.parent.parent.parent
+    """Find the project root directory by looking for key markers."""
+    from src.utils.paths import find_project_root
+    return find_project_root(Path(__file__).resolve())
 
 
 # Compute project root once at module load
@@ -174,15 +158,7 @@ def check_user_permissions():
 from typing import Any, Dict, List
 import re as _re
 
-def _strip_jsonc_comments(text: str) -> str:
-    text = _re.sub(r"//.*", "", text)
-    text = _re.sub(r"/\*.*?\*/", "", text, flags=_re.DOTALL)
-    return text
-
-def load_jsonc_config(path: Path) -> Any:
-    with open(path, "r") as f:
-        import json as _json
-        return _json.loads(_strip_jsonc_comments(f.read()))
+from src.utils.config_loader import load_jsonc as load_jsonc_config, strip_jsonc_comments as _strip_jsonc_comments
 
 def _normalize_device_keys(d: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(d, dict):

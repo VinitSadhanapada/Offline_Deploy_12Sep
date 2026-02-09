@@ -201,6 +201,8 @@ class MeterManager:
         # Timing trackers
         self._last_poll_time = 0
         self._last_csv_write_time = 0
+        self._last_drift_check_time = 0
+        self._drift_check_interval = 60  # Check RTC vs system every 60 seconds
         
         # Per-meter state for fast polling (blackout detection)
         self._meter_state = {}
@@ -219,17 +221,19 @@ class MeterManager:
         
         for idx, m in enumerate(meters):
             name = getattr(m, 'name', f"Meter_{idx+1}")
-            self._meter_comm_state[name] = True  # Assume healthy start
+            self._meter_comm_state[name] = 'OK'  # 'OK' | 'RPI_USB_ERROR' | 'METER_COMM_ERROR'
             self._meter_last_valid_int[name] = None
             self._meter_suspect_state[name] = {
-                'suspect_timestamp': None,  # When we first saw Freq=0,Int=0
-                'suspect_last_int': None,
-                'pending_confirmation': False
+                'active': False,          # Is blackout currently in progress?
+                'start_time': None,       # When blackout started
+                'start_int': None         # Int counter at blackout start
             }
         
-        # Find interruption and frequency parameter indices once
+        # Find key parameter indices once for detection logic
         self._intr_idx = self._find_param_index(parameters, ['interruption', 'intr', 'no of interruption', 'noofintr'])
         self._freq_idx = self._find_param_index(parameters, ['frequency', 'freq'])
+        self._wh_idx = self._find_param_index(parameters, ['whreceived', 'whrcvd', 'wh'])
+        self._onhrs_idx = self._find_param_index(parameters, ['onhours', 'onhrs'])
         
         # Always use DATA_ALL.csv in data/csv/
         from pathlib import Path
@@ -432,15 +436,17 @@ class MeterManager:
             if i < len(self.meters) - 1 and inter_device_delay > 0:
                 time.sleep(inter_device_delay)
         
+        # --- RTC DRIFT CHECK (Every 60s, independent of CSV writes) ---
+        if self.time_sanitizer and (current_time - self._last_drift_check_time >= self._drift_check_interval):
+            self._last_drift_check_time = current_time
+            drift_event = self.time_sanitizer.check_drift()
+            if drift_event:
+                self._log_system_event(drift_event)
+
         # --- SLOW CSV WRITE PHASE (Every 60s) ---
         if current_time - self._last_csv_write_time >= self.slow_csv_interval:
             # Time sanity checks before writing
             if self.time_sanitizer:
-                # Check for runtime drift (system vs RTC)
-                drift_event = self.time_sanitizer.check_drift()
-                if drift_event:
-                    self._log_system_event(drift_event)
-                
                 # Check for time jump between CSV writes
                 for meter_name, state in self._meter_state.items():
                     values = state.get('latest_values')
@@ -613,139 +619,137 @@ class MeterManager:
 
     def _process_meter_reading(self, meter_name, reg_values):
         """
-        Process single meter reading with refined detection logic (Option C deferred confirmation).
-        
-        Features:
-        - Comm Error State Machine: Single START/END events (not every cycle)
-        - Blackout Detection: Freq=0 AND Int increased proves line dead
-        - Option C Deferred: Suspect state (Freq=0,Int=0) waits for next poll confirmation
-        - False Positive Filter: Ignores Int increases if Freq>0 (meter glitch, not blackout)
-        
+        Three-way detection for each meter reading:
+
+        1. RPI↔USB COMM ERROR:  any value is -1
+           → USB adapter unreachable (serial port lost, driver issue)
+        2. USB↔METER COMM ERROR: all values are 0 (including cumulative counters)
+           → Adapter connected but meter not responding on RS-485 bus
+        3. TRUE BLACKOUT: Freq=0, V=0 BUT cumulative counters (Wh, OnHours) > 0
+           → Line power lost, meter still alive and responding
+
+        Key insight: cumulative counters (Wh Received, On Hours) never reset to 0
+        as long as the meter is powered.  All-zeros means no real data came back.
+
         Returns: (should_log_to_csv, processed_values)
         """
-        freq_idx = self._freq_idx
-        intr_idx = self._intr_idx
-        
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Extract values (handle index bounds)
-        freq_val = reg_values[freq_idx] if freq_idx is not None and len(reg_values) > freq_idx else -1
-        intr_val = reg_values[intr_idx] if intr_idx is not None and len(reg_values) > intr_idx else -1
-        
-        # --- FEATURE 5: Comm Error State Machine ---
-        comm_healthy = (freq_val != -1 and intr_val != -1)
-        was_healthy = self._meter_comm_state.get(meter_name, True)
-        
-        if comm_healthy != was_healthy:
-            if comm_healthy:
-                # Recovery from comm error
+
+        # --- Helper: safe value extraction ---
+        def _val(idx):
+            if idx is not None and len(reg_values) > idx:
+                return reg_values[idx]
+            return None
+
+        freq_val  = _val(self._freq_idx)
+        intr_val  = _val(self._intr_idx)
+        wh_val    = _val(self._wh_idx)
+        onhrs_val = _val(self._onhrs_idx)
+
+        # ── CASE 1: RPI ↔ USB comm failure (any value is -1) ──────────────
+        has_minus_one = any(v == -1 for v in reg_values if v is not None)
+        was_healthy = self._meter_comm_state.get(meter_name, 'OK')
+
+        if has_minus_one:
+            if was_healthy != 'RPI_USB_ERROR':
                 self._log_event(
                     timestamp=current_time,
-                    event_type='COMM_ERROR_END',
+                    event_type='RPI_USB_COMM_ERROR',
                     meter_name=meter_name,
-                    details='Communication restored',
-                    count_before='',
-                    count_after=''
+                    details='Values contain -1: RPi cannot communicate with USB adapter',
+                    count_before='', count_after=''
                 )
-                self._meter_comm_state[meter_name] = True
-            else:
-                # Entered comm error
+                self._meter_comm_state[meter_name] = 'RPI_USB_ERROR'
+            return True, reg_values  # Write -1s to CSV for audit trail
+
+        # ── CASE 2: USB ↔ Meter comm failure (all values zero) ────────────
+        # Check numeric data values only (skip index 0 which is the timestamp)
+        numeric_values = reg_values[1:]  # everything after timestamp
+        all_zero = all(
+            (v == 0 or v == 0.0 or v == '0' or v == '0.0')
+            for v in numeric_values if v is not None
+        )
+
+        if all_zero and len(numeric_values) > 0:
+            if was_healthy != 'METER_COMM_ERROR':
                 self._log_event(
                     timestamp=current_time,
-                    event_type='COMM_ERROR_START',
+                    event_type='METER_COMM_ERROR',
                     meter_name=meter_name,
-                    details=f'Values became -1 (Freq:{freq_val}, Int:{intr_val})',
-                    count_before=str(self._meter_last_valid_int.get(meter_name, 'N/A')),
-                    count_after='-1'
+                    details='All parameter values are 0: USB adapter cannot reach meter on RS-485 bus',
+                    count_before='', count_after=''
                 )
-                self._meter_comm_state[meter_name] = False
-        
-        # If comm error, don't process for blackout detection
-        if not comm_healthy:
-            return True, reg_values  # Still write -1 to CSV
-        
-        # Convert to numeric for checks
+                self._meter_comm_state[meter_name] = 'METER_COMM_ERROR'
+            return True, reg_values  # Write zeros to CSV for audit trail
+
+        # ── If we reach here, we have real data from the meter ────────────
+        # Transition logging: recover from any previous error state
+        if was_healthy != 'OK':
+            self._log_event(
+                timestamp=current_time,
+                event_type='COMM_RESTORED',
+                meter_name=meter_name,
+                details=f'Communication restored (was {was_healthy})',
+                count_before='', count_after=''
+            )
+            self._meter_comm_state[meter_name] = 'OK'
+
+        # Convert to numeric for blackout checks
         try:
-            freq = float(freq_val)
-            intr = int(float(intr_val))
+            freq  = float(freq_val) if freq_val is not None else -1
+            intr  = int(float(intr_val)) if intr_val is not None else -1
+            wh    = float(wh_val) if wh_val is not None else -1
+            onhrs = float(onhrs_val) if onhrs_val is not None else -1
         except (ValueError, TypeError):
-            return True, reg_values  # Parse error, treat as data
-        
-        # --- FEATURE 4 & 6: Blackout Detection (Option C Deferred) ---
+            return True, reg_values  # Parse error, just write raw data
+
+        # ── CASE 3: True blackout detection (Freq=0, cumulative counters > 0) ─
         last_intr = self._meter_last_valid_int.get(meter_name)
-        suspect_state = self._meter_suspect_state.get(meter_name, {
-            'suspect_timestamp': None,
-            'suspect_last_int': None,
-            'pending_confirmation': False
+        blackout_state = self._meter_suspect_state.get(meter_name, {
+            'active': False,
+            'start_time': None,
+            'start_int': None
         })
-        
-        # Check for deferred confirmation from previous suspect state
-        if suspect_state.get('pending_confirmation', False):
-            prev_intr = suspect_state.get('suspect_last_int')
-            
-            if prev_intr is not None and intr > prev_intr:
-                # CONFIRMED: Int increased since suspect reading
-                # This was a real blackout that started in previous cycle
+
+        if freq == 0 and (wh > 0 or onhrs > 0):
+            # Meter is responding with real cumulative data but line frequency is 0
+            # → TRUE BLACKOUT (AC line is dead)
+            if not blackout_state.get('active', False):
+                # Blackout just started
+                blackout_state['active'] = True
+                blackout_state['start_time'] = current_time
+                blackout_state['start_int'] = intr
+                self._meter_suspect_state[meter_name] = blackout_state
                 self._log_event(
                     timestamp=current_time,
-                    event_type='BLACKOUT_CONFIRMED',
+                    event_type='BLACKOUT_START',
                     meter_name=meter_name,
-                    details=f'Confirmed from suspect state. Start: {suspect_state.get("suspect_timestamp")}',
-                    count_before=str(prev_intr),
+                    details=f'Freq=0 with cumulative counters intact (Wh={wh}, OnHrs={onhrs})',
+                    count_before=str(last_intr) if last_intr is not None else '',
                     count_after=str(intr)
                 )
-                # Also log the main BLACKOUT event
+        else:
+            # Freq > 0 → line is alive
+            if blackout_state.get('active', False):
+                # Blackout just ended
+                duration_note = f'Started: {blackout_state.get("start_time", "?")}'
+                int_before = blackout_state.get('start_int', '?')
+                blackout_state['active'] = False
+                blackout_state['start_time'] = None
+                self._meter_suspect_state[meter_name] = blackout_state
                 self._log_event(
                     timestamp=current_time,
-                    event_type='BLACKOUT',
+                    event_type='BLACKOUT_END',
                     meter_name=meter_name,
-                    details=f'Line blackout detected (Freq=0 with Int increase)',
-                    count_before=str(prev_intr),
+                    details=f'Power restored. {duration_note}',
+                    count_before=str(int_before),
                     count_after=str(intr)
                 )
-            
-            elif freq > 0:
-                # Was comm error or false positive, not blackout (recovered without Int increase)
-                self._log_event(
-                    timestamp=current_time,
-                    event_type='SUSPECT_RESOLVED',
-                    meter_name=meter_name,
-                    details='Freq recovered, no Int increase - was comm error or glitch',
-                    count_before=str(prev_intr) if prev_intr is not None else '',
-                    count_after=str(intr)
-                )
-            
-            # Clear suspect state
-            suspect_state['pending_confirmation'] = False
-            suspect_state['suspect_timestamp'] = None
-            self._meter_suspect_state[meter_name] = suspect_state
-        
-        # Current cycle detection
-        if freq == 0:
-            if last_intr is not None and intr > last_intr:
-                # FEATURE 6: Immediate detection if Freq=0 AND Int already increased
-                # This catches ongoing blackout
-                self._log_event(
-                    timestamp=current_time,
-                    event_type='BLACKOUT',
-                    meter_name=meter_name,
-                    details='Line blackout (Freq=0 with Int increase)',
-                    count_before=str(last_intr),
-                    count_after=str(intr)
-                )
-            elif intr == 0 and (last_intr == 0 or last_intr is None):
-                # SUSPECT state: Freq=0, Int=0 (rare on UPS)
-                # Option C: Defer confirmation to next poll
-                suspect_state['suspect_timestamp'] = current_time
-                suspect_state['suspect_last_int'] = intr
-                suspect_state['pending_confirmation'] = True
-                self._meter_suspect_state[meter_name] = suspect_state
-                # Don't log yet - wait for next poll to confirm
-        
-        # Update last valid Int (only if not -1)
-        if intr_val != -1:
+
+        # Update last valid interruption count
+        if intr >= 0:
             self._meter_last_valid_int[meter_name] = intr
-        
+
         return True, reg_values
 
     def _write_slow_csv(self):

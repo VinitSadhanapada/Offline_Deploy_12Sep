@@ -195,6 +195,7 @@ class RTCTimeSanitizer:
     def sync_system_to_rtc(self):
         """
         Sync system time from RTC using direct I2C read and date command.
+        Disables NTP first so the correction is not immediately overwritten.
         
         Returns:
             bool: True if successful
@@ -206,6 +207,15 @@ class RTCTimeSanitizer:
                 self.logger.error("Cannot sync - RTC time unavailable")
                 return False
             
+            # Disable NTP so it doesn't fight our correction
+            try:
+                subprocess.run(
+                    ['sudo', 'timedatectl', 'set-ntp', 'false'],
+                    timeout=5, capture_output=True
+                )
+            except Exception:
+                pass  # Best-effort; may not have timedatectl
+
             # Set system time using date command
             time_str = rtc_time.strftime("%Y-%m-%d %H:%M:%S")
             subprocess.run(
@@ -371,7 +381,7 @@ class RTCTimeSanitizer:
         system_now = datetime.now()
         drift = abs((system_now - rtc_now).total_seconds())
         
-        if drift > 60:  # > 1 minute drift
+        if drift > 2:  # > 2 seconds drift — RTC is authoritative
             event = {
                 "type": "TIME_DRIFT_DETECTED",
                 "drift_seconds": round(drift, 2),
