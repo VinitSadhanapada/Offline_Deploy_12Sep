@@ -5,15 +5,59 @@ RS485 Adapter Reliability Test
 Polls an Elmeasure LG6400 meter every second via Modbus RTU and logs
 success/failure statistics. Designed to run for 2+ days continuously.
 
-Usage:
-    ./venv/bin/python tools/rs485_reliability_test.py
-    ./venv/bin/python tools/rs485_reliability_test.py --port /dev/ttyUSB0 --addr 1
-    ./venv/bin/python tools/rs485_reliability_test.py --duration 48   # hours
+QUICK START
+-----------
+  # 1. Make sure olad / DMX services are not holding the USB port:
+  sudo systemctl stop olad dmx-blue-fade.service
+  fuser /dev/ttyUSB0            # should return nothing
 
-Output:
-    - Live console with rolling stats (updated every poll)
-    - CSV log:  logs/rs485_reliability_YYYYMMDD_HHMMSS.csv
-    - Summary printed on Ctrl+C or when duration expires
+  # 2. Run the test (use the project venv — has pymodbus + pyserial):
+  cd /home/pi/Desktop/offline-setup-12Sep
+  ./venv/bin/python -u tools/rs485_reliability_test.py --duration 48 --port /dev/ttyUSB0
+
+  # 3. Run in background (survives terminal close):
+  nohup ./venv/bin/python -u tools/rs485_reliability_test.py --duration 48 --port /dev/ttyUSB0 &
+
+VIEWING LOGS
+------------
+  # Latest log file:
+  ls -lt logs/rs485_reliability_*.csv | head -1
+
+  # Follow live (tail):
+  tail -f logs/rs485_reliability_5.csv
+
+  # Count OK vs ERR:
+  grep -c ',OK,'  logs/rs485_reliability_5.csv
+  grep -c ',ERR,' logs/rs485_reliability_5.csv
+
+  # Last 20 entries:
+  tail -20 logs/rs485_reliability_5.csv
+
+  # Check if still running:
+  ps aux | grep rs485_reliability | grep -v grep
+
+OPTIONS
+-------
+  --port PORT        Serial port          (default: /dev/ttyUSB0)
+  --addr ADDR        Modbus slave address  (default: 1)
+  --baud BAUD        Baud rate             (default: 9600)
+  --interval SECS    Poll interval         (default: 1.0)
+  --duration HOURS   Test duration         (default: 48)
+
+TROUBLESHOOTING
+---------------
+  ModuleNotFoundError: No module named 'pymodbus'
+      → Use the venv Python:  ./venv/bin/python -u tools/rs485_reliability_test.py ...
+
+  FATAL: Could not open serial port
+      → Check adapter: ls -la /dev/ttyUSB0
+      → Kill olad:      sudo kill $(fuser /dev/ttyUSB0 2>/dev/null)
+      → Rebind driver:  echo '1-1.1:1.0' | sudo tee /sys/bus/usb/drivers/ftdi_sio/bind
+
+  USB adapter keeps disconnecting (dmesg shows attach then disconnect ~5s later)
+      → The udev rule 99-dmx-restart.rules triggers olad which grabs the port.
+        Fix:  sudo mv /etc/udev/rules.d/99-dmx-restart.rules{,.disabled}
+              sudo udevadm control --reload-rules
 
 Requires: pymodbus, pyserial  (both in venv)
 """
@@ -221,7 +265,15 @@ class Stats:
 # ---------------------------------------------------------------------------
 def open_csv(log_dir):
     log_dir.mkdir(parents=True, exist_ok=True)
-    fname = log_dir / f"rs485_reliability_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    # Find next available run number (rs485_reliability_1.csv, _2.csv, ...)
+    existing = sorted(log_dir.glob("rs485_reliability_*.csv"))
+    next_num = 1
+    for p in existing:
+        stem = p.stem  # e.g. "rs485_reliability_3"
+        suffix = stem.replace("rs485_reliability_", "")
+        if suffix.isdigit():
+            next_num = max(next_num, int(suffix) + 1)
+    fname = log_dir / f"rs485_reliability_{next_num}.csv"
     fh = open(fname, "w", newline="", buffering=1)   # line-buffered
     writer = csv.writer(fh)
     writer.writerow(["timestamp", "poll_num", "status", "value", "latency_ms", "error"])
