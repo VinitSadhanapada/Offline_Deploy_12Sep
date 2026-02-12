@@ -170,7 +170,7 @@ class TerminalMeterUI:
             self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
             
             # Find the main CSV file (symlink or actual file)
-            csv_file = self.csv_dir / "readings_all.csv"
+            csv_file = self.csv_dir / "DATA_ALL.csv"
             
             if not csv_file.exists():
                 self.stdscr.attron(curses.color_pair(4))
@@ -244,6 +244,89 @@ class TerminalMeterUI:
         self.draw_footer("readings")
         self.stdscr.refresh()
     
+    def show_latest_readings(self):
+        """Display latest readings from DATA_ALL.csv (distinct from live readings)."""
+        self.stdscr.clear()
+        self.draw_header()
+        
+        height, width = self.stdscr.getmaxyx()
+        
+        try:
+            self.stdscr.attron(curses.A_BOLD | curses.color_pair(1))
+            self.stdscr.addstr(3, 2, "LATEST READINGS (from DATA_ALL.csv)")
+            self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
+            
+            csv_file = self.csv_dir / "DATA_ALL.csv"
+            
+            if not csv_file.exists():
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(5, 2, "DATA_ALL.csv not found!")
+                self.stdscr.attroff(curses.color_pair(4))
+                self.stdscr.addstr(6, 2, f"Expected: {csv_file}")
+                self.draw_footer("readings")
+                self.stdscr.refresh()
+                return
+            
+            try:
+                with open(csv_file, 'r') as f:
+                    reader = list(csv.reader(f))
+                
+                if len(reader) < 2:
+                    self.stdscr.attron(curses.color_pair(3))
+                    self.stdscr.addstr(5, 2, "No data available yet")
+                    self.stdscr.attroff(curses.color_pair(3))
+                else:
+                    header = reader[0]
+                    # Get latest rows per meter
+                    latest_rows = {}
+                    for row in reversed(reader[1:]):
+                        if len(row) >= 2:
+                            meter_name = row[1]
+                            if meter_name not in latest_rows:
+                                latest_rows[meter_name] = row
+                    
+                    y_pos = 5
+                    for meter_name, row in latest_rows.items():
+                        if y_pos >= height - 3:
+                            break
+                        
+                        self.stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+                        self.stdscr.addstr(y_pos, 2, f"╔═ {meter_name} {'═' * (width - len(meter_name) - 8)}"[:width-2])
+                        self.stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+                        y_pos += 1
+                        
+                        for i, (param, value) in enumerate(zip(header, row)):
+                            if y_pos >= height - 3:
+                                break
+                            
+                            if param in ["Time", "Model"]:
+                                self.stdscr.addstr(y_pos, 4, f"{param}:")
+                                self.stdscr.attron(curses.color_pair(6) | curses.A_BOLD)
+                                self.stdscr.addstr(f" {value}"[:width-20])
+                                self.stdscr.attroff(curses.color_pair(6) | curses.A_BOLD)
+                                y_pos += 1
+                            elif param not in ["Device_ID", "Meter_Name"] and i < 10:
+                                param_short = param[:20]
+                                value_short = str(value)[:15]
+                                self.stdscr.addstr(y_pos, 4, f"{param_short}:")
+                                self.stdscr.attron(curses.color_pair(6))
+                                self.stdscr.addstr(f" {value_short}")
+                                self.stdscr.attroff(curses.color_pair(6))
+                                y_pos += 1
+                        
+                        y_pos += 1
+                
+            except Exception as e:
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(5, 2, f"Error reading CSV: {str(e)[:width-10]}")
+                self.stdscr.attroff(curses.color_pair(4))
+        
+        except curses.error:
+            pass
+        
+        self.draw_footer("readings")
+        self.stdscr.refresh()
+
     def export_csv_data(self):
         """Prepare CSV files for download with date selection and show instructions."""
         height, width = self.stdscr.getmaxyx()
@@ -597,28 +680,49 @@ class TerminalMeterUI:
             
             y_pos += 1
             
-            # Service status
+            # Service and manual logging status
             self.stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
-            self.stdscr.addstr(y_pos, 2, "Dashboard Service:")
+            self.stdscr.addstr(y_pos, 2, "Logging Status:")
             self.stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
             y_pos += 1
-            
+
+            # Check service
+            service_status = None
             try:
-                result = subprocess.run(['systemctl', 'is-active', 'meter-dashboard'], 
-                                      capture_output=True, text=True)
-                status = result.stdout.strip()
-                if status == "active":
-                    self.stdscr.attron(curses.color_pair(2))
-                    self.stdscr.addstr(y_pos, 4, "✓ Running")
-                    self.stdscr.attroff(curses.color_pair(2))
-                else:
-                    self.stdscr.attron(curses.color_pair(4))
-                    self.stdscr.addstr(y_pos, 4, f"✗ {status}")
-                    self.stdscr.attroff(curses.color_pair(4))
-            except:
-                self.stdscr.addstr(y_pos, 4, "Service status unknown")
-            
-            y_pos += 2
+                result = subprocess.run(['systemctl', 'is-active', 'meter-dashboard'], capture_output=True, text=True)
+                service_status = result.stdout.strip()
+            except Exception:
+                service_status = None
+
+            # Check for manual/standalone logging
+            manual_running = False
+            try:
+                result = subprocess.run(["ps", "aux"], stdout=subprocess.PIPE, text=True)
+                for line in result.stdout.splitlines():
+                    if "simple_rpi_dashboard.py" in line:
+                        line_norm = line.strip().lower()
+                        if "--run" in line_norm:
+                            manual_running = True
+                            break
+            except Exception:
+                pass
+
+            # Display status
+            if service_status == "active":
+                self.stdscr.attron(curses.color_pair(2))
+                self.stdscr.addstr(y_pos, 4, "✓ Service: RUNNING")
+                self.stdscr.attroff(curses.color_pair(2))
+            else:
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(y_pos, 4, f"✗ Service: {service_status if service_status else 'unknown'}")
+                self.stdscr.attroff(curses.color_pair(4))
+            y_pos += 1
+            if manual_running:
+                self.stdscr.attron(curses.color_pair(3))
+                self.stdscr.addstr(y_pos, 4, "⚠ Manual logging process is running!")
+                self.stdscr.attroff(curses.color_pair(3))
+                y_pos += 1
+            y_pos += 1
             
             # Recent log files
             self.stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
@@ -773,7 +877,7 @@ class TerminalMeterUI:
                 "VIEWING LIVE DATA VIA SSH:",
                 "  1. SSH into the device",
                 "  2. Run this UI: python3 terminal_meter_ui.py",
-                "  3. Or tail CSV: tail -f data/csv/readings_all.csv",
+                "  3. Or tail CSV: tail -f data/csv/DATA_ALL.csv",
                 "",
                 "TIPS:",
                 "  • Use option 2 'Export CSV' to prepare files in exports/ folder",
@@ -1451,7 +1555,7 @@ class TerminalMeterUI:
                         self.export_csv_data()
                         self.wait_for_key()
                     elif self.selected_index == 2:  # View Latest
-                        self.show_live_readings()
+                        self.show_latest_readings()
                         self.wait_for_key()
                     elif self.selected_index == 3:  # System Status
                         self.show_system_status()

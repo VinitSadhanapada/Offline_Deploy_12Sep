@@ -90,6 +90,7 @@ declare -a SCRIPTS=(
     "usb_download_mvp/scripts/usb_gadget.sh"
     "usb_download_mvp/scripts/watchdog_status.sh"
     "usb_download_mvp/scripts/ssid_hint.sh"
+    "scripts/system/rtc_check.sh"
 )
 
 for script in "${SCRIPTS[@]}"; do
@@ -133,6 +134,69 @@ chmod 755 "$PROJECT_ROOT/logs"
 
 STEPS_COMPLETED=$((STEPS_COMPLETED + 1))
 log_success "Step 2 complete: Directories created"
+echo ""
+
+#############################################################################
+# STEP 2b: Install I2C tools for DS3231 RTC support
+#############################################################################
+log_info "Step 2b: Installing I2C tools for RTC support..."
+echo ""
+
+# Enable I2C interface if not already enabled
+if [ -e /boot/config.txt ]; then
+    if ! grep -q "^dtparam=i2c_arm=on" /boot/config.txt 2>/dev/null; then
+        echo "dtparam=i2c_arm=on" >> /boot/config.txt
+        log_success "Enabled I2C in /boot/config.txt (reboot required)"
+    else
+        log_info "I2C already enabled in /boot/config.txt"
+    fi
+elif [ -e /boot/firmware/config.txt ]; then
+    if ! grep -q "^dtparam=i2c_arm=on" /boot/firmware/config.txt 2>/dev/null; then
+        echo "dtparam=i2c_arm=on" >> /boot/firmware/config.txt
+        log_success "Enabled I2C in /boot/firmware/config.txt (reboot required)"
+    else
+        log_info "I2C already enabled in /boot/firmware/config.txt"
+    fi
+fi
+
+# Load i2c kernel modules now (if available)
+modprobe i2c-dev 2>/dev/null || true
+modprobe i2c-bcm2835 2>/dev/null || true
+
+# Ensure i2c-dev loads on boot
+if [ -f /etc/modules ]; then
+    grep -q "^i2c-dev" /etc/modules 2>/dev/null || echo "i2c-dev" >> /etc/modules
+fi
+
+# Install i2c-tools and python3-smbus via apt
+for pkg in i2c-tools python3-smbus; do
+    if dpkg -s "$pkg" &>/dev/null; then
+        log_info "$pkg already installed"
+    else
+        log_info "Installing $pkg..."
+        if apt-get install -y "$pkg" >> "$LOG_FILE" 2>&1; then
+            log_success "Installed $pkg"
+        else
+            log_warning "Could not install $pkg (may need internet or apt cache)"
+        fi
+    fi
+done
+
+# Quick I2C sanity check
+if [ -e /dev/i2c-1 ]; then
+    log_success "I2C bus /dev/i2c-1 is available"
+    if command -v i2cdetect &>/dev/null; then
+        if i2cdetect -y 1 2>/dev/null | grep -q "68"; then
+            log_success "DS3231 RTC detected at address 0x68"
+        else
+            log_warning "DS3231 RTC not detected at 0x68 (check wiring or reboot if I2C was just enabled)"
+        fi
+    fi
+else
+    log_warning "I2C bus not available yet (will be available after reboot)"
+fi
+
+log_success "Step 2b complete: I2C/RTC tools ready"
 echo ""
 
 #############################################################################

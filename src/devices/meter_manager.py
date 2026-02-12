@@ -273,8 +273,28 @@ class MeterManager:
         # Detect and repair any CSV corruption on startup
         self._detect_and_repair_corruption()
 
-        # Setup events CSV (fast, immediate flush for blackout detection)
-        self.events_path = data_dir / "EVENTS.csv"
+        # Setup events CSV in backup folder (fast, immediate flush for blackout detection)
+        self.events_path = self.backup_dir / "EVENTS.csv"
+        # Migrate old EVENTS.csv from data/csv/ to backup/ if it exists
+        old_events = data_dir / "EVENTS.csv"
+        if old_events.exists() and not self.events_path.exists():
+            try:
+                shutil.move(str(old_events), str(self.events_path))
+                self.error_logger.info(f"Migrated EVENTS.csv to backup folder")
+            except Exception as e:
+                self.error_logger.warning(f"Could not migrate old EVENTS.csv: {e}")
+        elif old_events.exists() and self.events_path.exists():
+            # Append old data to new, then remove old
+            try:
+                with open(old_events, 'r') as old_f:
+                    lines = old_f.readlines()
+                if len(lines) > 1:  # Has data beyond header
+                    with open(self.events_path, 'a') as new_f:
+                        new_f.writelines(lines[1:])  # Skip header
+                old_events.unlink()
+                self.error_logger.info("Merged old EVENTS.csv into backup/EVENTS.csv")
+            except Exception as e:
+                self.error_logger.warning(f"Could not merge old EVENTS.csv: {e}")
         self._init_events_csv()
         
         # Initialize time sanitizer for RTC-based time integrity
