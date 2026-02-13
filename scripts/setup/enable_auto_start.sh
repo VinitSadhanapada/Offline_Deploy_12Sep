@@ -91,37 +91,18 @@ jsonc_get() {
 	"$PY_EXEC" "$SCRIPT_DIR/tools/jsonc_get.py" "$key_path" "$CONFIG_DIR/config.json" || true
 }
 
-USB_ENABLED="$(jsonc_get usb_copy.enabled || true)"
+USB_ENABLED="false"  # USB auto-copy removed (USB corruption risk)
 CLOUD_ENABLED="$(jsonc_get cloud_sync.enabled || true)"
 CLOUD_INTERVAL_MIN="$(jsonc_get cloud_sync.interval_minutes || true)"
 CLOUD_INTERVAL_SEC="$(jsonc_get cloud_sync.interval_seconds || true)"
 if [[ -z "${CLOUD_INTERVAL_MIN}" ]]; then CLOUD_INTERVAL_MIN=10; fi
 if [[ -z "${CLOUD_INTERVAL_SEC}" ]]; then CLOUD_INTERVAL_SEC=""; fi
 
-echo "[INFO] Installing USB auto-copy service"
-# USB copy script is now in scripts/system/ or src/services/
-USB_COPY_SCRIPT="${SCRIPT_DIR}/scripts/system/usb_csv_auto_copy.py"
-if [[ ! -f "$USB_COPY_SCRIPT" ]]; then
-    USB_COPY_SCRIPT="${SCRIPT_DIR}/src/services/usb_csv_auto_copy.py"
-fi
-
-sudo tee /etc/systemd/system/usb_csv_auto_copy.service >/dev/null <<UNIT
-[Unit]
-Description=USB CSV Auto-Copy Service
-After=multi-user.target
-
-[Service]
-Type=simple
-WorkingDirectory=${SCRIPT_DIR}
-ExecStart=/usr/bin/python3 ${USB_COPY_SCRIPT} --daemon
-Restart=on-failure
-RestartSec=5
-Nice=10
-IOSchedulingClass=idle
-
-[Install]
-WantedBy=multi-user.target
-UNIT
+echo "[INFO] USB auto-copy has been removed (USB corruption risk). Skipping."
+# Clean up any previously installed usb_csv_auto_copy.service
+sudo systemctl stop usb_csv_auto_copy.service 2>/dev/null || true
+sudo systemctl disable usb_csv_auto_copy.service 2>/dev/null || true
+sudo rm -f /etc/systemd/system/usb_csv_auto_copy.service 2>/dev/null || true
 
 echo "[INFO] Installing Cloud Sync service and timer"
 # Cloud sync script is now in src/network/
@@ -168,16 +149,6 @@ else
 	echo "[INFO] usb_download_mvp installer script not present or not executable; skipping" | tee -a "$LOGFILE"
 fi
 
-if [[ "${USB_ENABLED}" == "true" ]]; then
-	echo "[INFO] Enabling and starting usb_csv_auto_copy.service"
-	sudo systemctl enable usb_csv_auto_copy.service
-	sudo systemctl restart usb_csv_auto_copy.service || sudo systemctl start usb_csv_auto_copy.service
-else
-	echo "[INFO] usb_copy.enabled=false; disabling usb_csv_auto_copy.service"
-	sudo systemctl disable usb_csv_auto_copy.service || true
-	sudo systemctl stop usb_csv_auto_copy.service || true
-fi
-
 if [[ "${CLOUD_ENABLED}" == "true" ]]; then
 	echo "[INFO] Enabling cloud_sync.timer"
 	sudo systemctl enable cloud_sync.timer
@@ -202,7 +173,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=${SCRIPT_DIR}
-ExecStart=${PY_EXEC} ${SCRIPT_DIR}/netwatch_trigger.py
+ExecStart=${PY_EXEC} ${SCRIPT_DIR}/src/network/cloud_sync.py --watch
 Restart=always
 RestartSec=5
 Nice=10
@@ -216,7 +187,6 @@ echo "[INFO] netwatch-trigger.service unit installed (activation follows cloud_s
 
 echo "[INFO] Done. Services configured:"
 echo "       - meter-dashboard.service (from simple_rpi_dashboard.py)"
-echo "       - usb_csv_auto_copy.service (copies CSVs to USB when present)"
 if [[ -n "${CLOUD_INTERVAL_SEC}" ]]; then
 	echo "       - cloud_sync.timer (triggers cloud_sync.service every ${CLOUD_INTERVAL_SEC} sec)"
 else

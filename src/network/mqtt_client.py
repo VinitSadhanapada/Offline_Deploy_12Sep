@@ -40,15 +40,8 @@ mqtt_thread = None
 
 def _read_jsonc(path):
     """Read a JSON-with-comments file (// line comments supported)."""
-    try:
-        with open(path, "r") as f:
-            content = f.read()
-        # strip // comments
-        import re
-        content = re.sub(r"//.*", "", content)
-        return json.loads(content)
-    except Exception:
-        return {}
+    from src.utils.config_loader import load_jsonc
+    return load_jsonc(path)
 
 
 def _load_mqtt_config():

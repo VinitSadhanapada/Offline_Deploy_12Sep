@@ -45,7 +45,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent.parent  # project root
 DATA_CSV = ROOT / "data" / "csv"
 LOGS_DIR = ROOT / "logs"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -65,28 +65,12 @@ def log(msg: str):
 
 
 def load_jsonc(path: Path) -> Dict:
-    text = path.read_text(encoding="utf-8")
-    def _strip(line: str) -> str:
-        in_str = False
-        escaped = False
-        out = []
-        i = 0
-        while i < len(line):
-            ch = line[i]
-            if ch == '"' and not escaped:
-                in_str = not in_str
-            if not in_str and i + 1 < len(line) and line[i:i+2] == "//":
-                break
-            escaped = (ch == "\\") and not escaped
-            out.append(ch)
-            i += 1
-        return "".join(out)
-    cleaned = "\n".join(_strip(l) for l in text.splitlines())
-    return json.loads(cleaned or "{}")
+    from src.utils.config_loader import load_jsonc as _load_jsonc
+    return _load_jsonc(path)
 
 
 def load_config() -> Dict:
-    from paths import get_config_dir
+    from src.utils.paths import get_config_dir
     alt = get_config_dir() / "config.json"
     cfg_path = alt if alt.exists() else (ROOT / "config.json")
     if not cfg_path.exists():
@@ -276,6 +260,8 @@ def do_sync(cfg: Dict, dry_run: bool) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Cloud sync for CSV files")
     ap.add_argument("--run-once", action="store_true", help="Perform one sync attempt and exit")
+    ap.add_argument("--watch", action="store_true",
+                    help="Watch for network connectivity; trigger sync on offline->online transition")
     ap.add_argument("--dry-run", action="store_true", help="Show commands without executing")
     args = ap.parse_args(argv)
 
@@ -324,6 +310,24 @@ def main(argv=None) -> int:
         else:
             log(f"[WARN] Cloud sync exit code {rc}")
         return rc
+
+    # --watch mode: replaces the old netwatch_trigger.py service.
+    # Polls connectivity every 5s, triggers sync on offline -> online transition.
+    if args.watch:
+        poll_sec = 5
+        was_up = None
+        log(f"[netwatch] watching connectivity to {test_host}:{test_port} every {poll_sec}s")
+        while True:
+            up = network_available(test_host, test_port, timeout=2.0)
+            if was_up is None:
+                state_str = "online" if up else "offline"
+                log(f"[netwatch] initial state: {state_str}")
+            elif (not was_up) and up:
+                log("[netwatch] connectivity restored; triggering cloud sync")
+                attempt()
+            was_up = up
+            time.sleep(poll_sec)
+        return 0  # unreachable, but keeps linters happy
 
     if args.run_once:
         attempt()

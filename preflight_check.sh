@@ -1,1 +1,0 @@
-tests/preflight_check.sh

@@ -19,6 +19,7 @@ logs/archive/
 *.log
 mqtt_log.txt
 rtc_drift_log.csv
+nohup.out
 
 # Data files (exclude actual readings, keep structure)
 data/csv/

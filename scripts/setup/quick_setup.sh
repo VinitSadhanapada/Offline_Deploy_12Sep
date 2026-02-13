@@ -1,9 +1,19 @@
 #!/bin/bash
 # Quick Setup Launcher - For Terminal/SSH Access
-# This is a simplified entry point for first-time setup via SSH
+# Interactive menu for first-time setup, launching UIs, or checking status.
+# Can be invoked from project root (symlink) or from scripts/setup/.
 
+set -euo pipefail
+
+# Resolve project root regardless of invocation path (root symlink or scripts/setup/)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [[ -d "$SCRIPT_DIR/scripts/setup" ]]; then
+    PROJECT_ROOT="$SCRIPT_DIR"
+elif [[ -d "$SCRIPT_DIR/../../scripts/setup" ]]; then
+    PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+else
+    PROJECT_ROOT="$SCRIPT_DIR"
+fi
 cd "$PROJECT_ROOT"
 
 # Colors
@@ -47,21 +57,26 @@ case $OPTION in
         echo -e "${YELLOW}Running complete system setup...${NC}"
         echo "You will be prompted for sudo password"
         sleep 1
-        sudo "$SCRIPT_DIR/master_setup.sh"
+        sudo bash "$PROJECT_ROOT/scripts/setup/master_setup.sh"
         ;;
     2)
         echo ""
         echo -e "${GREEN}Launching Terminal UI...${NC}"
         sleep 1
-        "$PROJECT_ROOT/terminal_ui.sh"
+        bash "$PROJECT_ROOT/terminal_ui.sh"
         ;;
     3)
         echo ""
-        if command -v python3 &> /dev/null; then
+        # Find Python in venv
+        PY="${PROJECT_ROOT}/venv313/bin/python"
+        if [[ ! -x "$PY" ]]; then PY="${PROJECT_ROOT}/venv/bin/python"; fi
+        if [[ ! -x "$PY" ]]; then PY="python3"; fi
+
+        if command -v "$PY" &> /dev/null; then
             echo -e "${GREEN}Launching Desktop UI...${NC}"
-            python3 "$PROJECT_ROOT/simple_meter_ui.py"
+            "$PY" "$PROJECT_ROOT/src/dashboard/simple_meter_ui.py"
         else
-            echo -e "${YELLOW}Python3 not found. Install it first.${NC}"
+            echo -e "${YELLOW}Python3 not found. Run option 1 first.${NC}"
         fi
         ;;
     4)
@@ -71,15 +86,23 @@ case $OPTION in
         echo "Dashboard Service:"
         systemctl is-active meter-dashboard 2>/dev/null || echo "  Not installed/running"
         echo ""
-        echo "USB Download Service:"
-        systemctl is-active usb-download-server 2>/dev/null || echo "  Not installed/running"
+        echo "WiFi AP Service:"
+        systemctl is-active usb_ap 2>/dev/null || echo "  Not installed/running"
+        echo ""
+        echo "Download Server:"
+        systemctl is-active download-server 2>/dev/null || echo "  Not installed/running"
         echo ""
         echo "Disk Space:"
         df -h "$PROJECT_ROOT" | tail -1
         echo ""
         echo "Recent Logs (last 10 lines):"
-        if [ -d "$PROJECT_ROOT/logs" ]; then
-            tail -n 10 "$PROJECT_ROOT/logs"/*.log 2>/dev/null | head -20 || echo "  No logs found"
+        if [[ -d "$PROJECT_ROOT/logs" ]]; then
+            LATEST_LOG=$(ls -t "$PROJECT_ROOT/logs"/*.log 2>/dev/null | head -1)
+            if [[ -n "$LATEST_LOG" ]]; then
+                tail -n 10 "$LATEST_LOG"
+            else
+                echo "  No logs found"
+            fi
         else
             echo "  No logs directory"
         fi
