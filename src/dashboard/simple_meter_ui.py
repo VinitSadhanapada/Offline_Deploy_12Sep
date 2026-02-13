@@ -207,10 +207,7 @@ class SimpleMeterUI(tk.Tk):
         """Handle CSV log interval change from UI."""
         try:
             new_val = int(self.csv_interval_var.get())
-            if new_val < 10:
-                messagebox.showwarning("Warning", "Minimum interval is 10 seconds to avoid SD card wear.")
-                self.csv_interval_var.set(str(self.csv_log_interval))
-                return
+            # Removed minimum interval restriction; allow values below 10 seconds
             if new_val > 3600:
                 messagebox.showwarning("Warning", "Maximum interval is 3600 seconds (1 hour).")
                 self.csv_interval_var.set(str(self.csv_log_interval))
@@ -869,94 +866,158 @@ class SimpleMeterUI(tk.Tk):
         LiveReadingsWindow(self, self.reading_interval)
 
 
-# ─── Live Readings modal window ───
+
+# ─── Live Readings modal window (compact table) ───
 
 class LiveReadingsWindow(tk.Toplevel):
+    """
+    Compact table: one row per meter, columns for R/Y/B voltage & current.
+    All 14 meters visible at once — no scrolling. Values update in-place.
+    """
+
+    _SHOW_COLS = ["V_R_Ph", "V_Y_Ph", "V_B_Ph", "A_R_Ph", "A_Y_Ph", "A_B_Ph"]
+    _COL_LABELS = ["Meter", "V_R", "V_Y", "V_B", "A_R", "A_Y", "A_B"]
+
     def __init__(self, parent, reading_interval):
-        import tkinter.ttk as ttk
         super().__init__(parent)
-        self.title("Live Readings Table")
-        self.geometry("1000x700")
-        self.reading_interval = reading_interval
+        self.title("Live Readings")
+        self.geometry("820x560")
+        self.min_refresh_interval = 0.5
+        self.reading_interval = max(reading_interval, self.min_refresh_interval)
         self.protocol("WM_DELETE_WINDOW", self._close)
         self._running = True
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         csv_dir = str(PROJECT_ROOT / "data" / "csv")
-        single_csv = os.path.join(csv_dir, "DATA_ALL.csv")
-
+        self.csv_path = os.path.join(csv_dir, "DATA_ALL.csv")
         try:
             os.makedirs(csv_dir, exist_ok=True)
-            if not os.path.exists(single_csv):
-                import csv as _csv
-                with open(single_csv, "w", newline='') as _f:
-                    writer = _csv.writer(_f)
-                    writer.writerow(["Device_ID", "Meter_Name", "Time", "Model"])
-                legacy = os.path.join(csv_dir, "readings_all.csv")
-                if not os.path.exists(legacy):
-                    try:
-                        os.symlink(single_csv, legacy)
-                    except Exception:
-                        pass
         except Exception:
             pass
 
-        self.tabs = {}
-        tab = tk.Frame(self.notebook)
-        canvas = tk.Canvas(tab)
-        scrollbar = tk.Scrollbar(tab, orient="vertical", command=canvas.yview)
-        scroll_frame = tk.Frame(canvas)
-        scroll_frame.bind(
-            "<Configure>", lambda e, c=canvas: c.configure(scrollregion=c.bbox("all"))
+        # Title
+        tk.Label(self, text="Live Meter Readings", font=("Arial", 14, "bold")).pack(pady=(8, 4))
+
+        # Table frame
+        self.table_frame = tk.Frame(self)
+        self.table_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=4)
+
+        # Build header row
+        for col_idx, label in enumerate(self._COL_LABELS):
+            bg = "#2c3e50" if col_idx == 0 else ("#2980b9" if col_idx <= 3 else "#27ae60")
+            tk.Label(
+                self.table_frame, text=label, font=("Arial", 10, "bold"),
+                bg=bg, fg="white", width=10, anchor="center",
+                relief="raised", padx=4, pady=4,
+            ).grid(row=0, column=col_idx, sticky="nsew", padx=1, pady=1)
+
+        # Even column distribution
+        for col_idx in range(len(self._COL_LABELS)):
+            self.table_frame.columnconfigure(col_idx, weight=1)
+
+        # Status bar
+        self.status_var = tk.StringVar(value="Waiting for data…")
+        tk.Label(self, textvariable=self.status_var, fg="gray", anchor="w").pack(
+            fill=tk.X, padx=10, pady=(2, 6)
         )
-        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.notebook.add(tab, text="DATA_ALL")
-        self.tabs[single_csv] = scroll_frame
+
+        # Persistent widget refs
+        self._header = None
+        self._meter_rows = {}      # meter_name -> dict of value labels
+        self._meter_order = []     # ordered list of meter names
+        self._error_label = None
+
         self.after(100, self.refresh)
 
     def _close(self):
         self._running = False
         self.destroy()
 
+    def _add_meter_row(self, meter_name):
+        """Add one row to the table grid for a new meter (called once per meter)."""
+        row_idx = len(self._meter_order) + 1  # +1 for header
+        self._meter_order.append(meter_name)
+
+        # Alternating row colour
+        row_bg = "#f7f9fc" if row_idx % 2 == 0 else "#ffffff"
+
+        # Meter name cell
+        tk.Label(
+            self.table_frame, text=meter_name, font=("Arial", 9, "bold"),
+            bg=row_bg, anchor="w", padx=6, pady=3, width=10,
+        ).grid(row=row_idx, column=0, sticky="nsew", padx=1, pady=0)
+
+        # Value cells
+        value_labels = {}
+        for col_idx, col_name in enumerate(self._SHOW_COLS):
+            fg = "#2980b9" if col_idx < 3 else "#27ae60"
+            lbl = tk.Label(
+                self.table_frame, text="—", font=("Arial", 10, "bold"),
+                bg=row_bg, fg=fg, anchor="center", padx=4, pady=3, width=10,
+            )
+            lbl.grid(row=row_idx, column=col_idx + 1, sticky="nsew", padx=1, pady=0)
+            value_labels[col_name] = lbl
+
+        self._meter_rows[meter_name] = value_labels
+
     def refresh(self):
         if not self._running:
             return
         import csv
-        for csv_path, scroll_frame in self.tabs.items():
-            for widget in scroll_frame.winfo_children():
-                widget.destroy()
-            try:
-                with open(csv_path, "r") as f:
-                    reader = list(csv.reader(f))
-                if len(reader) < 2:
-                    tk.Label(scroll_frame, text="No data found in CSV.", fg="red").pack()
-                else:
-                    header = reader[0]
-                    latest_rows = {}
-                    for row in reversed(reader[1:]):
-                        meter_name = row[1]
-                        if meter_name not in latest_rows:
-                            latest_rows[meter_name] = row
-                    for meter_name, row in latest_rows.items():
-                        meter_frame = tk.LabelFrame(scroll_frame, text=f"Meter: {meter_name}", padx=8, pady=8)
-                        meter_frame.pack(fill=tk.X, padx=6, pady=6)
-                        table = tk.Frame(meter_frame)
-                        table.pack()
-                        for i, param in enumerate(header):
-                            if param in ["Device_ID", "Meter_Name", "Time", "Model"]:
-                                continue
-                            tk.Label(table, text=param, width=22, anchor="w", font=("Arial", 10)).grid(row=i, column=0, sticky="w")
-                            tk.Label(table, text=row[i], width=18, anchor="w", font=("Arial", 10, "bold"), fg="blue").grid(row=i, column=1, sticky="w")
-            except Exception as e:
-                tk.Label(scroll_frame, text=f"Error reading CSV: {e}", fg="red").pack()
+        from datetime import datetime
+
+        try:
+            with open(self.csv_path, "r") as f:
+                reader = list(csv.reader(f))
+
+            if self._error_label is not None:
+                self._error_label.pack_forget()
+
+            if len(reader) < 2:
+                if self._error_label is None:
+                    self._error_label = tk.Label(self, text="", fg="orange")
+                self._error_label.config(text="No data found in CSV yet.")
+                self._error_label.pack()
+            else:
+                header = reader[0]
+                if self._header is None:
+                    self._header = header
+
+                # Get latest row per meter
+                latest_rows = {}
+                for row in reversed(reader[1:]):
+                    if len(row) < 2:
+                        continue
+                    meter_name = row[1]
+                    if meter_name not in latest_rows:
+                        latest_rows[meter_name] = row
+
+                # Update or create rows
+                for meter_name, row in latest_rows.items():
+                    if meter_name not in self._meter_rows:
+                        self._add_meter_row(meter_name)
+
+                    value_labels = self._meter_rows[meter_name]
+                    for param in self._SHOW_COLS:
+                        if param in value_labels and param in header:
+                            idx = header.index(param)
+                            if idx < len(row):
+                                value_labels[param].config(text=row[idx])
+
+                self.status_var.set(
+                    f"Last updated: {datetime.now().strftime('%H:%M:%S')}  |  {len(latest_rows)} meters"
+                )
+
+        except Exception as e:
+            if self._error_label is None:
+                self._error_label = tk.Label(self, text="", fg="red")
+            self._error_label.config(text=f"Error reading CSV: {e}")
+            self._error_label.pack()
+
         if self._running:
-            self.after(self.reading_interval * 1000, self.refresh)
+            self.after(int(self.reading_interval * 1000), self.refresh)
 
 
 if __name__ == "__main__":
     app = SimpleMeterUI()
     app.mainloop()
+
