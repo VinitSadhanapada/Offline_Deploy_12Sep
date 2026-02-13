@@ -231,8 +231,8 @@ def _load_device_config(config_path: Path) -> List[Dict[str, Any]]:
 # Defaults (used if no config files are found)
 _DEFAULT_CONFIG = {
     "SIMULATION_MODE": False,
-    "READING_INTERVAL": 10,
-    "INTER_DEVICE_DELAY": 0.1,
+    "READING_INTERVAL": 0,
+    "INTER_DEVICE_DELAY": 0,
     "PORT": "/dev/ttyUSB0",
     "ENABLE_MQTT": False,
     "ENABLE_RTC": True,
@@ -913,7 +913,7 @@ WantedBy=multi-user.target
                     self.logger.error(f"Read cycle error: {e}")
                     self.logger.debug(_tb.format_exc())
                     # Backoff briefly before retrying to avoid busy-loop
-                    time.sleep(5)
+                    time.sleep(1)
                 else:
                     time.sleep(CONFIG["READING_INTERVAL"])
 

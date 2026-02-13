@@ -164,12 +164,13 @@ class MeterManager:
     """
 
     def __init__(self, meters, parameters, csv_filenames=None, ui_callback=None, mqtt_client=None, publish_mqtt=False,
-                 fast_poll_interval=0.5, slow_csv_interval=60):
+                 fast_poll_interval=0, slow_csv_interval=60):
         """
         Initialize MeterManager with devices and configuration.
 
         Dual-rate architecture:
         - fast_poll_interval: Seconds between blackout checks (default 0.5)
+        - FSAT POLL INTERVAL REMVOED TO REDUCE LATENCY BETWEEN READINGS
         - slow_csv_interval: Seconds between main CSV writes (default 60)
 
         Args:
