@@ -867,21 +867,43 @@ class SimpleMeterUI(tk.Tk):
 
 
 
-# ─── Live Readings modal window (compact table) ───
+# ─── Live Readings modal window (compact grouped table) ───
 
 class LiveReadingsWindow(tk.Toplevel):
     """
-    Compact table: one row per meter, columns for R/Y/B voltage & current.
-    All 14 meters visible at once — no scrolling. Values update in-place.
+    Compact table: one row per meter, grouped columns for Voltage / Current / Power
+    with R/Y/B sub-values color-coded (R=red, Y=amber, B=blue). Frequency as a
+    single value. All 14 meters visible at once — no scrolling. Updates in-place.
     """
 
-    _SHOW_COLS = ["V_R_Ph", "V_Y_Ph", "V_B_Ph", "A_R_Ph", "A_Y_Ph", "A_B_Ph"]
-    _COL_LABELS = ["Meter", "V_R", "V_Y", "V_B", "A_R", "A_Y", "A_B"]
+    # Groups: each tuple is (display_label, [(csv_col, phase_letter), ...])
+    # We try both underscored and spaced names for CSV compatibility.
+    _GROUPS = [
+        ("Voltage (V)", [
+            (["V_R_Ph", "V R Ph"], "R"),
+            (["V_Y_Ph", "V Y Ph"], "Y"),
+            (["V_B_Ph", "V B Ph"], "B"),
+        ]),
+        ("Current (A)", [
+            (["A_R_Ph", "A R Ph"], "R"),
+            (["A_Y_Ph", "A Y Ph"], "Y"),
+            (["A_B_Ph", "A B Ph"], "B"),
+        ]),
+        ("Power (W)", [
+            (["Watts_R_Ph", "Watts R Ph"], "R"),
+            (["Watts_Y_Ph", "Watts Y Ph"], "Y"),
+            (["Watts_B_Ph", "Watts B Ph"], "B"),
+        ]),
+    ]
+    _FREQ_COLS = ["Frequency", "Freq"]  # possible CSV column names
+
+    # Phase colours
+    _PHASE_FG = {"R": "#c0392b", "Y": "#b8860b", "B": "#2471a3"}
 
     def __init__(self, parent, reading_interval):
         super().__init__(parent)
         self.title("Live Readings")
-        self.geometry("820x560")
+        self.geometry("1050x650")
         self.min_refresh_interval = 0.5
         self.reading_interval = max(reading_interval, self.min_refresh_interval)
         self.protocol("WM_DELETE_WINDOW", self._close)
@@ -895,24 +917,33 @@ class LiveReadingsWindow(tk.Toplevel):
             pass
 
         # Title
-        tk.Label(self, text="Live Meter Readings", font=("Arial", 14, "bold")).pack(pady=(8, 4))
+        tk.Label(self, text="Live Meter Readings", font=("Arial", 16, "bold")).pack(pady=(8, 2))
+
+        # Phase legend (small, below title)
+        legend_frame = tk.Frame(self)
+        legend_frame.pack(pady=(0, 4))
+        for phase, colour in self._PHASE_FG.items():
+            tk.Label(legend_frame, text=f"■ {phase}", fg=colour,
+                     font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=6)
 
         # Table frame
         self.table_frame = tk.Frame(self)
-        self.table_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=4)
+        self.table_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=2)
 
-        # Build header row
-        for col_idx, label in enumerate(self._COL_LABELS):
-            bg = "#2c3e50" if col_idx == 0 else ("#2980b9" if col_idx <= 3 else "#27ae60")
+        # Column headers  (col 0=Meter, 1-3=groups, 4=Freq)
+        col_headers = ["Meter"] + [g[0] for g in self._GROUPS] + ["Freq (Hz)"]
+        header_colours = ["#2c3e50", "#2980b9", "#27ae60", "#8e44ad", "#7f8c8d"]
+        for col_idx, (label, bg) in enumerate(zip(col_headers, header_colours)):
             tk.Label(
-                self.table_frame, text=label, font=("Arial", 10, "bold"),
-                bg=bg, fg="white", width=10, anchor="center",
-                relief="raised", padx=4, pady=4,
+                self.table_frame, text=label, font=("Arial", 12, "bold"),
+                bg=bg, fg="white", anchor="center", relief="raised",
+                padx=2, pady=4,
             ).grid(row=0, column=col_idx, sticky="nsew", padx=1, pady=1)
 
-        # Even column distribution
-        for col_idx in range(len(self._COL_LABELS)):
-            self.table_frame.columnconfigure(col_idx, weight=1)
+        # Column weights
+        self.table_frame.columnconfigure(0, weight=2)   # Meter name (wider)
+        for c in range(1, len(col_headers)):
+            self.table_frame.columnconfigure(c, weight=3 if c < 4 else 1)
 
         # Status bar
         self.status_var = tk.StringVar(value="Waiting for data…")
@@ -922,8 +953,9 @@ class LiveReadingsWindow(tk.Toplevel):
 
         # Persistent widget refs
         self._header = None
-        self._meter_rows = {}      # meter_name -> dict of value labels
-        self._meter_order = []     # ordered list of meter names
+        self._resolved_cols = None  # resolved CSV column names
+        self._meter_rows = {}       # meter_name -> {group_idx -> {phase: label}, "freq": label}
+        self._meter_order = []
         self._error_label = None
 
         self.after(100, self.refresh)
@@ -932,32 +964,61 @@ class LiveReadingsWindow(tk.Toplevel):
         self._running = False
         self.destroy()
 
+    def _resolve_columns(self, header):
+        """Match our expected column name variants against actual CSV header."""
+        resolved = {"groups": [], "freq": None}
+        for _label, phases in self._GROUPS:
+            group = {}
+            for col_variants, phase in phases:
+                for variant in col_variants:
+                    if variant in header:
+                        group[phase] = variant
+                        break
+            resolved["groups"].append(group)
+        for variant in self._FREQ_COLS:
+            if variant in header:
+                resolved["freq"] = variant
+                break
+        return resolved
+
     def _add_meter_row(self, meter_name):
-        """Add one row to the table grid for a new meter (called once per meter)."""
-        row_idx = len(self._meter_order) + 1  # +1 for header
+        """Add one row to the table for a new meter."""
+        row_idx = len(self._meter_order) + 1
         self._meter_order.append(meter_name)
 
-        # Alternating row colour
         row_bg = "#f7f9fc" if row_idx % 2 == 0 else "#ffffff"
 
         # Meter name cell
         tk.Label(
-            self.table_frame, text=meter_name, font=("Arial", 9, "bold"),
-            bg=row_bg, anchor="w", padx=6, pady=3, width=10,
+            self.table_frame, text=meter_name, font=("Arial", 11, "bold"),
+            bg=row_bg, anchor="w", padx=4, pady=1,
         ).grid(row=row_idx, column=0, sticky="nsew", padx=1, pady=0)
 
-        # Value cells
-        value_labels = {}
-        for col_idx, col_name in enumerate(self._SHOW_COLS):
-            fg = "#2980b9" if col_idx < 3 else "#27ae60"
-            lbl = tk.Label(
-                self.table_frame, text="—", font=("Arial", 10, "bold"),
-                bg=row_bg, fg=fg, anchor="center", padx=4, pady=3, width=10,
-            )
-            lbl.grid(row=row_idx, column=col_idx + 1, sticky="nsew", padx=1, pady=0)
-            value_labels[col_name] = lbl
+        row_labels = {"groups": [], "freq": None}
 
-        self._meter_rows[meter_name] = value_labels
+        # Grouped value cells (Voltage, Current, Power)
+        for grp_idx in range(len(self._GROUPS)):
+            cell_frame = tk.Frame(self.table_frame, bg=row_bg)
+            cell_frame.grid(row=row_idx, column=grp_idx + 1, sticky="nsew", padx=1, pady=0)
+            phase_labels = {}
+            for phase in ("R", "Y", "B"):
+                lbl = tk.Label(
+                    cell_frame, text="—", font=("Arial", 12, "bold"),
+                    bg=row_bg, fg=self._PHASE_FG[phase], anchor="center", padx=1, pady=1,
+                )
+                lbl.pack(side=tk.LEFT, expand=True)
+                phase_labels[phase] = lbl
+            row_labels["groups"].append(phase_labels)
+
+        # Frequency cell
+        freq_lbl = tk.Label(
+            self.table_frame, text="—", font=("Arial", 12, "bold"),
+            bg=row_bg, fg="#555555", anchor="center", padx=2, pady=1,
+        )
+        freq_lbl.grid(row=row_idx, column=len(self._GROUPS) + 1, sticky="nsew", padx=1, pady=0)
+        row_labels["freq"] = freq_lbl
+
+        self._meter_rows[meter_name] = row_labels
 
     def refresh(self):
         if not self._running:
@@ -981,6 +1042,8 @@ class LiveReadingsWindow(tk.Toplevel):
                 header = reader[0]
                 if self._header is None:
                     self._header = header
+                if self._resolved_cols is None:
+                    self._resolved_cols = self._resolve_columns(header)
 
                 # Get latest row per meter
                 latest_rows = {}
@@ -996,12 +1059,22 @@ class LiveReadingsWindow(tk.Toplevel):
                     if meter_name not in self._meter_rows:
                         self._add_meter_row(meter_name)
 
-                    value_labels = self._meter_rows[meter_name]
-                    for param in self._SHOW_COLS:
-                        if param in value_labels and param in header:
-                            idx = header.index(param)
-                            if idx < len(row):
-                                value_labels[param].config(text=row[idx])
+                    rl = self._meter_rows[meter_name]
+
+                    # Update grouped columns
+                    for grp_idx, grp_resolved in enumerate(self._resolved_cols["groups"]):
+                        for phase, csv_col in grp_resolved.items():
+                            if csv_col in header:
+                                idx = header.index(csv_col)
+                                if idx < len(row):
+                                    rl["groups"][grp_idx][phase].config(text=row[idx])
+
+                    # Update frequency
+                    freq_col = self._resolved_cols["freq"]
+                    if freq_col and freq_col in header:
+                        idx = header.index(freq_col)
+                        if idx < len(row):
+                            rl["freq"].config(text=row[idx])
 
                 self.status_var.set(
                     f"Last updated: {datetime.now().strftime('%H:%M:%S')}  |  {len(latest_rows)} meters"

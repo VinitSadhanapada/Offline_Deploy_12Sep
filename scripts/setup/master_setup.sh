@@ -169,7 +169,7 @@ if [ -f /etc/modules ]; then
 fi
 
 # Install i2c-tools and python3-smbus via apt
-for pkg in i2c-tools python3-smbus; do
+for pkg in i2c-tools python3-smbus util-linux; do
     if dpkg -s "$pkg" &>/dev/null; then
         log_info "$pkg already installed"
     else
@@ -177,7 +177,22 @@ for pkg in i2c-tools python3-smbus; do
         if apt-get install -y "$pkg" >> "$LOG_FILE" 2>&1; then
             log_success "Installed $pkg"
         else
-            log_warning "Could not install $pkg (may need internet or apt cache)"
+            log_warning "Could not install $pkg from apt (may need internet or apt cache)"
+            # Offline fallback for util-linux only
+            if [ "$pkg" = "util-linux" ]; then
+                DEB_PATH="$PROJECT_ROOT/packages_folder/apt_debs/util-linux_2.41-5_arm64.deb"
+                if [ -f "$DEB_PATH" ]; then
+                    log_info "Attempting offline install of util-linux from $DEB_PATH..."
+                    if dpkg -i "$DEB_PATH" >> "$LOG_FILE" 2>&1; then
+                        log_success "Offline .deb install of util-linux succeeded"
+                        apt-get -f install -y >> "$LOG_FILE" 2>&1
+                    else
+                        log_error "Offline .deb install of util-linux failed. Manual intervention required."
+                    fi
+                else
+                    log_error "Offline .deb for util-linux not found at $DEB_PATH"
+                fi
+            fi
         fi
     fi
 done

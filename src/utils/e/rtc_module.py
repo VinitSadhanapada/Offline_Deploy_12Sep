@@ -323,17 +323,12 @@ class DS3231:
     # ── Sysfs mode ─────────────────────────────────────────────────
 
     def _get_time_sysfs(self) -> datetime:
-        """Read RTC via /sys/class/rtc/rtc0/. Returns LOCAL time (converted from UTC)."""
+        """Read RTC via /sys/class/rtc/rtc0/."""
         with open('/sys/class/rtc/rtc0/date', 'r') as f:
             date_str = f.read().strip()  # "2026-02-17"
         with open('/sys/class/rtc/rtc0/time', 'r') as f:
-            time_str = f.read().strip()  # "10:05:43" (UTC)
-        
-        # sysfs always returns UTC — convert to local time for consistency with datetime.now()
-        from datetime import timezone
-        utc_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        local_dt = utc_dt.astimezone().replace(tzinfo=None)  # Convert to local, strip tzinfo
-        return local_dt
+            time_str = f.read().strip()  # "14:30:00"
+        return datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
 
     # ── Direct I2C mode ────────────────────────────────────────────
 

@@ -17,24 +17,15 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+# Ensure project root is in sys.path for 'src' imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
+from src.utils.paths import find_project_root
+
+
 def _find_project_root() -> Path:
     """Find the project root directory by looking for key markers."""
-    start = Path(__file__).resolve().parent
-    for parent in [start] + list(start.parents):
-        if (parent / "data" / "csv").is_dir() or (parent / "src" / "dashboard").is_dir():
-            return parent
-    return start  # fallback to script directory
-
-
-def _get_config_dir() -> Path:
-    """Get the config directory (mirrors src.utils.paths.get_config_dir)."""
-    home_config = Path.home() / "meter_config"
-    if home_config.is_dir():
-        return home_config
-    proj_config = PROJECT_ROOT / "config"
-    if proj_config.is_dir():
-        return proj_config
-    return home_config  # default
+    return find_project_root(Path(__file__).resolve())
 
 
 PROJECT_ROOT = _find_project_root()
@@ -52,7 +43,8 @@ class TerminalMeterUI:
         self.logs_dir = PROJECT_ROOT / "logs"
         
         # Device configuration path
-        self.config_dir = _get_config_dir()
+        from src.utils.paths import get_config_dir
+        self.config_dir = get_config_dir()
         self.device_config_path = self.config_dir / "device_config.json"
         self.supported_models = ["LG6400", "LG+5220", "LG+5310", "EN8410", "iELR300"]
         
@@ -156,264 +148,92 @@ class TerminalMeterUI:
         except curses.error:
             pass
     
-    # Column definitions matching LiveReadingsWindow from simple_meter_ui_fixed.py
-    _LIVE_GROUPS = [
-        ("Voltage(V)", [
-            (["V_R_Ph", "V R Ph", "Volts_R", "Voltage R Phase"], "R"),
-            (["V_Y_Ph", "V Y Ph", "Volts_Y", "Voltage Y Phase"], "Y"),
-            (["V_B_Ph", "V B Ph", "Volts_B", "Voltage B Phase"], "B"),
-        ]),
-        ("Current(A)", [
-            (["A_R_Ph", "A R Ph", "Amps_R", "Current R Phase"], "R"),
-            (["A_Y_Ph", "A Y Ph", "Amps_Y", "Current Y Phase"], "Y"),
-            (["A_B_Ph", "A B Ph", "Amps_B", "Current B Phase"], "B"),
-        ]),
-        ("Power(W)", [
-            (["Watts_R_Ph", "Watts R Ph", "Watts_R", "Power R Phase"], "R"),
-            (["Watts_Y_Ph", "Watts Y Ph", "Watts_Y", "Power Y Phase"], "Y"),
-            (["Watts_B_Ph", "Watts B Ph", "Watts_B", "Power B Phase"], "B"),
-        ]),
-    ]
-    _FREQ_COLS = ["Frequency", "Freq", "Hz"]
-
-    def _resolve_csv_columns(self, header):
-        """Match expected column name variants against actual CSV header."""
-        resolved = {"groups": [], "freq": None}
-        for _label, phases in self._LIVE_GROUPS:
-            group = {}
-            for col_variants, phase in phases:
-                for variant in col_variants:
-                    if variant in header:
-                        group[phase] = header.index(variant)
-                        break
-            resolved["groups"].append(group)
-        for variant in self._FREQ_COLS:
-            if variant in header:
-                resolved["freq"] = header.index(variant)
-                break
-        return resolved
-
     def show_live_readings(self):
-        """Display live meter readings in a compact scrollable table.
+        """Display live meter readings from CSV."""
+        self.stdscr.clear()
+        self.draw_header()
         
-        Shows all meters in a horizontal table with columns:
-        Meter | Voltage R/Y/B | Current R/Y/B | Power R/Y/B | Freq
-        Supports UP/DOWN scrolling and R to refresh.
-        """
-        scroll_offset = 0
-        csv_file = self.csv_dir / "DATA_ALL.csv"
-
-        while True:
-            self.stdscr.clear()
-            self.draw_header()
-            height, width = self.stdscr.getmaxyx()
-
+        height, width = self.stdscr.getmaxyx()
+        
+        try:
+            self.stdscr.attron(curses.A_BOLD | curses.color_pair(1))
+            self.stdscr.addstr(3, 2, "LIVE METER READINGS")
+            self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
+            
+            # Find the main CSV file (symlink or actual file)
+            csv_file = self.csv_dir / "DATA_ALL.csv"
+            
+            if not csv_file.exists():
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(5, 2, "No readings file found!")
+                self.stdscr.attroff(curses.color_pair(4))
+                self.stdscr.addstr(6, 2, f"Expected: {csv_file}")
+                self.draw_footer("readings")
+                self.stdscr.refresh()
+                return
+            
+            # Read and display latest readings
             try:
-                # Title
-                self.stdscr.attron(curses.A_BOLD | curses.color_pair(1))
-                self.stdscr.addstr(3, 2, "LIVE METER READINGS")
-                self.stdscr.attroff(curses.A_BOLD | curses.color_pair(1))
-
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                self.stdscr.addstr(3, width - 20, f"Last: {timestamp}"[:width-22])
-
-                if not csv_file.exists():
-                    self.stdscr.attron(curses.color_pair(4))
-                    self.stdscr.addstr(5, 2, "No readings file found!")
-                    self.stdscr.attroff(curses.color_pair(4))
-                    self.stdscr.addstr(6, 2, f"Expected: {csv_file}"[:width-4])
+                with open(csv_file, 'r') as f:
+                    reader = list(csv.reader(f))
+                
+                if len(reader) < 2:
+                    self.stdscr.attron(curses.color_pair(3))
+                    self.stdscr.addstr(5, 2, "No data available yet")
+                    self.stdscr.attroff(curses.color_pair(3))
                 else:
-                    try:
-                        with open(csv_file, 'r') as f:
-                            reader = list(csv.reader(f))
-
-                        if len(reader) < 2:
-                            self.stdscr.attron(curses.color_pair(3))
-                            self.stdscr.addstr(5, 2, "No data available yet")
-                            self.stdscr.attroff(curses.color_pair(3))
-                        else:
-                            header = reader[0]
-                            resolved = self._resolve_csv_columns(header)
-
-                            # Get latest row per meter
-                            latest_rows = {}
-                            meter_order = []
-                            for row in reader[1:]:
-                                if len(row) >= 2:
-                                    mn = row[1]
-                                    if mn not in latest_rows:
-                                        meter_order.append(mn)
-                                    latest_rows[mn] = row
-
-                            total_meters = len(meter_order)
-
-                            # --- Draw table header ---
-                            # Spacious layout for fullscreen: wider columns + separators
-                            meter_col_w = 16
-                            phase_val_w = 10
-                            group_col_w = phase_val_w * 3
-                            sep = " │ "  # group separator
-                            freq_col_w = 10
-
-                            y = 5
-                            x = 2
-
-                            # Header row with phase labels
-                            self.stdscr.attron(curses.A_BOLD | curses.A_REVERSE)
-                            hdr_line = f"{'Meter':<{meter_col_w}}{sep}"
-                            for gi, (g_label, _) in enumerate(self._LIVE_GROUPS):
-                                hdr_line += f"{'R':^{phase_val_w}}{'Y':^{phase_val_w}}{'B':^{phase_val_w}}"
-                                hdr_line += sep
-                            hdr_line += f"{'Freq':^{freq_col_w}}"
-                            self.stdscr.addstr(y, x, hdr_line[:width-4])
-                            self.stdscr.attroff(curses.A_BOLD | curses.A_REVERSE)
-                            y += 1
-
-                            # Sub-header with group labels
-                            self.stdscr.attron(curses.color_pair(1) | curses.A_BOLD)
-                            sub_line = f"{'':<{meter_col_w}}{sep}"
-                            for gi, (g_label, _) in enumerate(self._LIVE_GROUPS):
-                                sub_line += f"{g_label:^{group_col_w}}"
-                                sub_line += sep
-                            sub_line += f"{'Hz':^{freq_col_w}}"
-                            self.stdscr.addstr(y, x, sub_line[:width-4])
-                            self.stdscr.attroff(curses.color_pair(1) | curses.A_BOLD)
-                            y += 1
-
-                            # Separator line
-                            table_w = meter_col_w + len(sep) + (group_col_w + len(sep)) * 3 + freq_col_w
-                            self.stdscr.addstr(y, x, "─" * min(width - 4, table_w))
-                            y += 1
-
-                            # --- Draw meter rows ---
-                            max_rows = height - y - 3  # room for footer + status
-                            if scroll_offset > max(0, total_meters - max_rows):
-                                scroll_offset = max(0, total_meters - max_rows)
-
-                            visible_meters = meter_order[scroll_offset:scroll_offset + max_rows]
-
-                            for mi, meter_name in enumerate(visible_meters):
-                                row = latest_rows[meter_name]
-                                row_y = y + mi
-
-                                if row_y >= height - 2:
-                                    break
-
-                                # Meter name
-                                name_display = meter_name[:meter_col_w - 1]
-                                self.stdscr.attron(curses.A_BOLD | curses.color_pair(2))
-                                self.stdscr.addstr(row_y, x, f"{name_display:<{meter_col_w}}")
-                                self.stdscr.attroff(curses.A_BOLD | curses.color_pair(2))
-
-                                col_x = x + meter_col_w
-
-                                # Phase values for each group (Voltage, Current, Power)
-                                for grp_idx, grp_resolved in enumerate(resolved["groups"]):
-                                    # Group separator
-                                    try:
-                                        self.stdscr.addstr(row_y, col_x, sep)
-                                    except curses.error:
-                                        pass
-                                    col_x += len(sep)
-
-                                    for phase in ("R", "Y", "B"):
-                                        val_str = "—".center(phase_val_w)
-                                        if phase in grp_resolved:
-                                            idx = grp_resolved[phase]
-                                            if idx < len(row):
-                                                try:
-                                                    v = float(row[idx])
-                                                    val_str = f"{v:>{phase_val_w}.1f}"
-                                                except (ValueError, TypeError):
-                                                    val_str = f"{row[idx]:>{phase_val_w}}"
-
-                                        # Phase color: R=red(4), Y=yellow(3), B=cyan(1)
-                                        if phase == "R":
-                                            color = curses.color_pair(4)
-                                        elif phase == "Y":
-                                            color = curses.color_pair(3)
-                                        else:
-                                            color = curses.color_pair(1)
-
-                                        try:
-                                            self.stdscr.attron(color | curses.A_BOLD)
-                                            self.stdscr.addstr(row_y, col_x, val_str[:phase_val_w])
-                                            self.stdscr.attroff(color | curses.A_BOLD)
-                                        except curses.error:
-                                            pass
-                                        col_x += phase_val_w
-
-                                # Separator before Freq
-                                try:
-                                    self.stdscr.addstr(row_y, col_x, sep)
-                                except curses.error:
-                                    pass
-                                col_x += len(sep)
-
-                                # Frequency
-                                freq_str = "—".center(freq_col_w)
-                                if resolved["freq"] is not None and resolved["freq"] < len(row):
-                                    try:
-                                        fv = float(row[resolved["freq"]])
-                                        freq_str = f"{fv:^{freq_col_w}.1f}"
-                                    except (ValueError, TypeError):
-                                        freq_str = f"{row[resolved['freq']]:^{freq_col_w}}"
-
-                                try:
-                                    self.stdscr.attron(curses.color_pair(6) | curses.A_BOLD)
-                                    self.stdscr.addstr(row_y, col_x, freq_str[:freq_col_w])
-                                    self.stdscr.attroff(curses.color_pair(6) | curses.A_BOLD)
-                                except curses.error:
-                                    pass
-
-                            # Scroll indicator
-                            status_y = height - 3
-                            if total_meters > max_rows:
-                                scroll_info = f"Showing {scroll_offset+1}-{min(scroll_offset+max_rows, total_meters)} of {total_meters} meters  (↑/↓ scroll)"
-                                self.stdscr.attron(curses.color_pair(3))
-                                self.stdscr.addstr(status_y, 2, scroll_info[:width-4])
-                                self.stdscr.attroff(curses.color_pair(3))
-                            else:
-                                self.stdscr.attron(curses.color_pair(2))
-                                self.stdscr.addstr(status_y, 2, f"{total_meters} meter(s)"[:width-4])
-                                self.stdscr.attroff(curses.color_pair(2))
-
-                    except Exception as e:
-                        self.stdscr.attron(curses.color_pair(4))
-                        self.stdscr.addstr(5, 2, f"Error reading CSV: {str(e)}"[:width-4])
-                        self.stdscr.attroff(curses.color_pair(4))
-
-            except curses.error:
-                pass
-
-            # Footer
-            try:
-                self.stdscr.attron(curses.color_pair(3))
-                footer = "R: Refresh  |  ↑/↓: Scroll  |  B: Back  |  Q: Quit"
-                self.stdscr.addstr(height - 1, max(0, (width - len(footer)) // 2), footer[:width-1])
-                self.stdscr.attroff(curses.color_pair(3))
-            except curses.error:
-                pass
-
-            self.stdscr.refresh()
-
-            # Handle input (non-blocking with timeout for auto-refresh)
-            self.stdscr.timeout(5000)  # auto-refresh every 5 seconds
-            key = self.stdscr.getch()
-            self.stdscr.timeout(-1)  # reset to blocking
-
-            if key in (ord('b'), ord('B'), 27):  # B or Escape → back
-                return
-            elif key in (ord('q'), ord('Q')):
-                self.running = False
-                return
-            elif key in (ord('r'), ord('R')):
-                continue  # refresh immediately
-            elif key == curses.KEY_UP:
-                scroll_offset = max(0, scroll_offset - 1)
-            elif key == curses.KEY_DOWN:
-                scroll_offset += 1
-            # Any other key or timeout → loop refreshes
+                    header = reader[0]
+                    # Get latest rows per meter
+                    latest_rows = {}
+                    for row in reversed(reader[1:]):
+                        if len(row) >= 2:
+                            meter_name = row[1]
+                            if meter_name not in latest_rows:
+                                latest_rows[meter_name] = row
+                    
+                    y_pos = 5
+                    for meter_name, row in latest_rows.items():
+                        if y_pos >= height - 3:
+                            break
+                        
+                        # Meter header
+                        self.stdscr.attron(curses.color_pair(2) | curses.A_BOLD)
+                        self.stdscr.addstr(y_pos, 2, f"╔═ {meter_name} {'═' * (width - len(meter_name) - 8)}"[:width-2])
+                        self.stdscr.attroff(curses.color_pair(2) | curses.A_BOLD)
+                        y_pos += 1
+                        
+                        # Display key parameters
+                        for i, (param, value) in enumerate(zip(header, row)):
+                            if y_pos >= height - 3:
+                                break
+                            
+                            if param in ["Time", "Model"]:
+                                self.stdscr.addstr(y_pos, 4, f"{param}:")
+                                self.stdscr.attron(curses.color_pair(6) | curses.A_BOLD)
+                                self.stdscr.addstr(f" {value}"[:width-20])
+                                self.stdscr.attroff(curses.color_pair(6) | curses.A_BOLD)
+                                y_pos += 1
+                            elif param not in ["Device_ID", "Meter_Name"] and i < 10:  # First few params
+                                param_short = param[:20]
+                                value_short = str(value)[:15]
+                                self.stdscr.addstr(y_pos, 4, f"{param_short}:")
+                                self.stdscr.attron(curses.color_pair(6))
+                                self.stdscr.addstr(f" {value_short}")
+                                self.stdscr.attroff(curses.color_pair(6))
+                                y_pos += 1
+                        
+                        y_pos += 1  # Space between meters
+                
+            except Exception as e:
+                self.stdscr.attron(curses.color_pair(4))
+                self.stdscr.addstr(5, 2, f"Error reading CSV: {str(e)[:width-10]}")
+                self.stdscr.attroff(curses.color_pair(4))
+        
+        except curses.error:
+            pass
+        
+        self.draw_footer("readings")
+        self.stdscr.refresh()
     
     def show_latest_readings(self):
         """Display latest readings from DATA_ALL.csv (distinct from live readings)."""
@@ -1721,6 +1541,7 @@ class TerminalMeterUI:
                     # Execute selected option
                     if self.selected_index == 0:  # Live Readings
                         self.show_live_readings()
+                        self.wait_for_key()
                     elif self.selected_index == 1:  # Export CSV
                         self.export_csv_data()
                         self.wait_for_key()

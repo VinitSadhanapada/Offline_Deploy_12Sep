@@ -207,10 +207,10 @@ def _load_device_config(config_path: Path) -> List[Dict[str, Any]]:
 # Defaults (used if no config files are found)
 _DEFAULT_CONFIG = {
     "SIMULATION_MODE": False,
-    "READING_INTERVAL": 0,
-    "INTER_DEVICE_DELAY": 0,
+    "READING_INTERVAL": 1,
+    "INTER_DEVICE_DELAY": 0.02,
     "PORT": "/dev/ttyUSB0",
-    "ENABLE_MQTT": False,
+    "ENABLE_MQTT": True,
     "ENABLE_RTC": True,
     "LOG_LEVEL": "INFO",
 }

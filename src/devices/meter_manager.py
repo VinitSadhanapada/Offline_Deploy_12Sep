@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import csv
+import logging
+logging.disable(logging.CRITICAL)
 import time
 import os
 import re
@@ -193,7 +195,7 @@ class MeterManager:
             formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             handler.setFormatter(formatter)
             self.error_logger.addHandler(handler)
-            self.error_logger.setLevel(logging.INFO)
+            self.error_logger.setLevel(logging.WARNING)
         
         # Dual-rate timing configuration
         self.fast_poll_interval = fast_poll_interval
@@ -632,8 +634,7 @@ class MeterManager:
             self.events_file.flush()
             os.fsync(self.events_file.fileno())
             
-            # Also log to error_logger for console visibility
-            self.error_logger.info(f"[{event_type}] {meter_name}: {details}")
+            # Removed info log for event cycles as requested
             
         except Exception as e:
             self.error_logger.error(f"Failed to log event: {e}")
